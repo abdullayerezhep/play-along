@@ -1,32 +1,46 @@
-export type Stroke = 'down' | 'up';
+export type Stroke = 'down' | 'up' | 'mute';
 
 export type Note = {
   id: number;
   time: number; // seconds from song start (beat 1 of bar 1)
   beat: number; // absolute beat index (float)
-  stroke: Stroke;
+  stroke: Stroke; // 'mute' = percussive chuck (✕)
   chord: string;
   chordChange: boolean;
+  len?: number; // beats to let the chord ring (long note)
+  endTime?: number;
+  chop?: boolean; // strum then cut it short
   result?: 'perfect' | 'good' | 'miss' | 'wrong';
   awaitingChord?: boolean;
   offset?: number; // seconds, +late / -early
+  onsetCtx?: number; // AudioContext time of the strum that hit it
+  source?: 'mic' | 'key';
+  hold?: 'holding' | 'broken' | 'done';
+  holdPoints?: number;
+  chopState?: 'ok' | 'rang';
 };
 
-export type Pattern = { id: string; name: string; level: string; hits: [number, Stroke][] };
+type Hit = { b: number; s: Stroke; len?: number; chop?: boolean };
+export type Pattern = { id: string; name: string; level: string; hits: Hit[] };
+
+const d = (b: number, extra: Partial<Hit> = {}): Hit => ({ b, s: 'down', ...extra });
+const u = (b: number, extra: Partial<Hit> = {}): Hit => ({ b, s: 'up', ...extra });
+const x = (b: number): Hit => ({ b, s: 'mute' });
 
 export const PATTERNS: Pattern[] = [
-  { id: 'one', name: 'Bar starts', level: 'Warm-up', hits: [[0, 'down']] },
-  { id: 'half', name: 'Half notes', level: 'Easy', hits: [[0, 'down'], [2, 'down']] },
-  { id: 'quarters', name: 'Quarter downs', level: 'Easy', hits: [[0, 'down'], [1, 'down'], [2, 'down'], [3, 'down']] },
+  { id: 'ring', name: 'Let it ring (one per bar)', level: 'Warm-up', hits: [d(0, { len: 3.5 })] },
+  { id: 'half', name: 'Half notes, let ring', level: 'Easy', hits: [d(0, { len: 1.5 }), d(2, { len: 1.5 })] },
+  { id: 'quarters', name: 'Quarter downs', level: 'Easy', hits: [d(0), d(1), d(2), d(3)] },
+  { id: 'boom-chuck', name: 'Boom-chuck  D·X·D·X', level: 'Easy', hits: [d(0), x(1), d(2), x(3)] },
+  { id: 'folk', name: 'Folk strum  D·DU·UDU', level: 'Medium', hits: [d(0), d(1), u(1.5), u(2.5), d(3), u(3.5)] },
+  { id: 'folk-chuck', name: 'Folk with chucks  D·XU·UXU', level: 'Medium', hits: [d(0), x(1), u(1.5), u(2.5), x(3), u(3.5)] },
+  { id: 'skank', name: 'Reggae skank (chops on 2 & 4)', level: 'Medium', hits: [d(1, { chop: true }), d(3, { chop: true })] },
+  { id: 'offbeat', name: 'Offbeat ups', level: 'Medium', hits: [u(0.5), u(1.5), u(2.5), u(3.5)] },
   {
-    id: 'folk', name: 'Folk strum  D·DU·UDU', level: 'Medium',
-    hits: [[0, 'down'], [1, 'down'], [1.5, 'up'], [2.5, 'up'], [3, 'down'], [3.5, 'up']],
+    id: 'funk', name: 'Funk chops  D·DU·X·DU', level: 'Hard',
+    hits: [d(0, { chop: true }), d(1), u(1.5, { chop: true }), x(2), d(3), u(3.5, { chop: true })],
   },
-  { id: 'offbeat', name: 'Offbeat ups (reggae)', level: 'Medium', hits: [[0.5, 'up'], [1.5, 'up'], [2.5, 'up'], [3.5, 'up']] },
-  {
-    id: 'eighths', name: 'Straight eighths', level: 'Hard',
-    hits: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5].map((b) => [b, b % 1 ? 'up' : 'down'] as [number, Stroke]),
-  },
+  { id: 'eighths', name: 'Straight eighths', level: 'Hard', hits: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5].map((b) => (b % 1 ? u(b) : d(b))) },
 ];
 
 export type Progression = { id: string; name: string; chords: string[] };
@@ -42,7 +56,7 @@ export const PROGRESSIONS: Progression[] = [
 
 export const BEATS_PER_BAR = 4;
 
-export type SongSettings = { bpm: number; bars: number; patternId: string; progressionId: string };
+export type SongSettings = { bpm: number; bars: number; patternId: string; progressionId: string; ringOut?: boolean };
 
 export function chordForBar(prog: Progression, bar: number) {
   return prog.chords[bar % prog.chords.length];
@@ -56,11 +70,15 @@ export function buildChart(s: SongSettings): Note[] {
   let prev = '';
   for (let bar = 0; bar < s.bars; bar++) {
     const chord = chordForBar(prog, bar);
-    pattern.hits.forEach(([b, stroke], i) => {
-      const beat = bar * BEATS_PER_BAR + b;
+    // finish the song on one big ringing chord, like the end of a real song
+    const hits = s.ringOut !== false && bar === s.bars - 1 && s.bars > 1 ? [d(0, { len: 3.5 })] : pattern.hits;
+    hits.forEach((h, i) => {
+      const beat = bar * BEATS_PER_BAR + h.b;
       notes.push({
-        id: notes.length, time: beat * spb, beat, stroke, chord,
+        id: notes.length, time: beat * spb, beat, stroke: h.s, chord,
         chordChange: i === 0 && chord !== prev,
+        ...(h.len ? { len: h.len, endTime: (beat + h.len) * spb } : {}),
+        ...(h.chop ? { chop: true } : {}),
       });
     });
     prev = chord;

@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { matchesChord } from '../audio/chords';
 import type { AudioEngine } from '../audio/engine';
 import { BEATS_PER_BAR, PROGRESSIONS, buildChart, chordForBar, rootFreq, type Note } from '../game/chart';
-import { confirmChord, emptyStats, judgeStrum, multiplier, rejectChord, sweepMisses, type Stats } from '../game/judge';
+import {
+  confirmChord, emptyStats, holdTick, judgeStrum, multiplier, rejectChord, sweepMisses, type Stats,
+} from '../game/judge';
 import type { AppSettings } from '../settings';
 import { ChordDiagram } from './ChordDiagram';
 
@@ -12,7 +14,12 @@ type Popup = { text: string; sub?: string; color: string; born: number };
 type Spark = { x: number; y: number; vx: number; vy: number; born: number; color: string };
 
 const LOOKAHEAD = 2.2; // seconds of notes visible above the hit line
-const COLORS = { down: '#ff9f43', up: '#3de0ff', perfect: '#7CFF6B', good: '#ffe066', miss: '#ff4d6d', wrong: '#ff4d6d' };
+const COLORS = {
+  down: '#ff9f43', up: '#3de0ff', mute: '#cfc8ee',
+  perfect: '#7CFF6B', good: '#ffe066', miss: '#ff4d6d', wrong: '#ff4d6d', hold: '#ff7bf0',
+};
+/** A chuck counts as muted if the sound fell below this fraction of its peak within 150 ms. */
+const MUTED_RATIO = 0.3;
 
 export function Game({ engine, settings, onFinish, onQuit }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -31,11 +38,13 @@ export function Game({ engine, settings, onFinish, onQuit }: Props) {
     const ctx = engine.ctx;
     const spb = 60 / settings.bpm;
     const latency = settings.latencyMs / 1000;
+    const chopAt = Math.min(0.25, spb * 0.45); // when we check that a chop was cut short
     const stats = emptyStats();
     const popups: Popup[] = [];
     const sparks: Spark[] = [];
     let pulse = 0; // hit-line glow from any strum
     let done = false;
+    const pop = (text: string, color: string, sub?: string) => popups.push({ text, sub, color, born: performance.now() });
 
     // --- schedule audio -------------------------------------------------
     engine.beginSession();
@@ -49,6 +58,22 @@ export function Game({ engine, settings, onFinish, onQuit }: Props) {
       }
     }
     const end = totalBeats * spb + 0.8;
+    const songNow = () => engine.now - start;
+
+    // --- long notes -----------------------------------------------------
+    const finishHold = (n: Note) => {
+      holdTick(n, n.endTime!, spb, stats);
+      n.hold = 'done';
+      stats.holdsDone++;
+      pop('HELD!', COLORS.hold, `+${n.holdPoints}`);
+      burst(COLORS.hold, 26);
+    };
+    const breakHold = (n: Note, why: string) => {
+      // forgive letting go in the last moment of the note
+      if (songNow() > n.endTime! - spb * 0.35) { finishHold(n); return; }
+      n.hold = 'broken';
+      pop('LET IT RING', COLORS.miss, why);
+    };
 
     // --- input ----------------------------------------------------------
     // strums waiting for the chord check, keyed by onset time
@@ -57,34 +82,50 @@ export function Game({ engine, settings, onFinish, onQuit }: Props) {
       if (done) return;
       const t = o.time - start - (o.source === 'mic' ? latency : 0);
       pulse = 1;
+      // strumming again cuts off a chord you were supposed to let ring
+      for (const n of notes) {
+        if (n.hold === 'holding' && o.time - (n.onsetCtx ?? 0) > 0.12) breakHold(n, 'strummed again');
+      }
       const check = settings.checkChords && o.source === 'mic';
       const hit = judgeStrum(notes, t, stats, check);
-      if (hit && check) pending.set(o.time, hit);
-      if (hit) {
-        const color = COLORS[hit.result as 'perfect' | 'good'];
-        popups.push({ text: hit.result === 'perfect' ? 'PERFECT' : 'GOOD', color, born: performance.now() });
-        burst(color, hit.result === 'perfect' ? 22 : 12);
-      }
+      if (!hit) return;
+      hit.onsetCtx = o.time;
+      hit.source = o.source;
+      if (hit.chop) stats.chops++;
+      if (check) pending.set(o.time, hit);
+      const color = COLORS[hit.result as 'perfect' | 'good'];
+      pop(hit.result === 'perfect' ? 'PERFECT' : 'GOOD', color);
+      burst(color, hit.result === 'perfect' ? 22 : 12);
     });
+
     const offChord = engine.onChord(({ onsetTime, result }) => {
       if (done) return;
       const note = pending.get(onsetTime);
       pending.delete(onsetTime);
-      const heardName = result.clarity < 0.55 ? '?' : result.best.name;
+      const heardName = result.clarity < 0.55 ? '✕' : result.best.name;
       if (!note) { setHeard({ name: heardName, ok: false }); return; }
+      if (note.stroke === 'mute') {
+        // a chuck should be a dead "chk": no clear chord, or the sound dies right away
+        const ratio = engine.history.decayRatio(onsetTime, onsetTime + 0.15);
+        const ok = result.clarity < 0.55 || (ratio !== null && ratio < MUTED_RATIO);
+        setHeard({ name: ok ? '✕' : heardName, ok });
+        if (ok) confirmChord(note, stats);
+        else { rejectChord(note, stats); pop('MUTE IT', COLORS.wrong, 'chuck = dead strings, no chord'); }
+        return;
+      }
       const ok = matchesChord(result, note.chord);
       setHeard({ name: ok ? note.chord : heardName, ok });
       if (ok) confirmChord(note, stats);
-      else {
-        rejectChord(note, stats);
-        popups.push({ text: 'WRONG CHORD', sub: `heard ${heardName}, needed ${note.chord}`, color: COLORS.wrong, born: performance.now() });
-      }
+      else { rejectChord(note, stats); pop('WRONG CHORD', COLORS.wrong, `heard ${heardName}, needed ${note.chord}`); }
     });
+
     const onKey = (e: KeyboardEvent) => {
       if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) engine.tap(); }
       if (e.code === 'Escape') { done = true; quitRef.current(); }
     };
+    const onKeyUp = (e: KeyboardEvent) => { if (e.code === 'Space') engine.release(); };
     window.addEventListener('keydown', onKey);
+    window.addEventListener('keyup', onKeyUp);
 
     // --- layout ---------------------------------------------------------
     let W = 0, H = 0, laneW = 0, laneX = 0, hitY = 0, pps = 0;
@@ -112,17 +153,48 @@ export function Game({ engine, settings, onFinish, onQuit }: Props) {
       }
     }
 
+    // --- per-frame rules for holds and chops ---------------------------
+    function updateNotes(now: number) {
+      const ctxNow = ctx.currentTime;
+      for (const n of notes) {
+        if (n.time > now) break;
+        if ((n.result !== 'perfect' && n.result !== 'good') || n.awaitingChord) continue;
+
+        if (n.len && !n.hold) { n.hold = 'holding'; stats.holds++; }
+        if (n.hold === 'holding') {
+          if (now >= n.endTime!) finishHold(n);
+          else if (n.source === 'key' ? !engine.keyHeld : engine.history.suddenDrop(n.onsetCtx!)) {
+            breakHold(n, n.source === 'key' ? 'released too early' : 'chord was cut off');
+          } else holdTick(n, now, spb, stats);
+        }
+
+        if (n.chop && !n.chopState && ctxNow > n.onsetCtx! + chopAt + 0.03) {
+          let ok: boolean | null;
+          if (n.source === 'key') ok = engine.keyReleasedAt > n.onsetCtx! && engine.keyReleasedAt - n.onsetCtx! <= chopAt + 0.02;
+          else {
+            const r = engine.history.decayRatio(n.onsetCtx!, n.onsetCtx! + chopAt);
+            ok = r === null ? null : r < MUTED_RATIO;
+          }
+          if (ok === null) continue; // level readings not in yet
+          n.chopState = ok ? 'ok' : 'rang';
+          if (ok) { stats.chopsOk++; stats.score += 50 * multiplier(stats.combo); pop('CHOP!', COLORS.hold); }
+          else pop('CUT IT SHORT', COLORS.good, 'mute right after the strum');
+        }
+      }
+    }
+
     // --- render loop ----------------------------------------------------
     let raf = 0;
     let lastHud = '';
     const frame = () => {
-      const now = engine.now - start;
+      const now = songNow();
       // safety net: if a chord check never came back, give the player the benefit of the doubt
       for (const [onsetTime, n] of pending) {
         if (ctx.currentTime - onsetTime > 0.6) { confirmChord(n, stats); pending.delete(onsetTime); }
       }
       const missed = sweepMisses(notes, now, stats);
-      if (missed.length) popups.push({ text: 'MISS', color: COLORS.miss, born: performance.now() });
+      if (missed.length) pop('MISS', COLORS.miss);
+      updateNotes(now);
 
       draw(now);
 
@@ -145,6 +217,62 @@ export function Game({ engine, settings, onFinish, onQuit }: Props) {
       g.arcTo(x, y + h, x, y, r);
       g.arcTo(x, y, x + w, y, r);
       g.closePath();
+    }
+
+    function drawTail(n: Note, now: number) {
+      if (n.hold === 'done') return;
+      const holding = n.hold === 'holding' || (n.awaitingChord && n.len);
+      const dead = n.hold === 'broken' || n.result === 'miss' || n.result === 'wrong';
+      const yHead = holding ? hitY : yFor(n.time, now);
+      const yEnd = yFor(n.endTime!, now);
+      if (yEnd > H || yHead < -40) return;
+      const tw = laneW * (holding ? 0.26 : 0.2);
+      g.save();
+      if (holding) { g.shadowColor = COLORS.hold; g.shadowBlur = 20 + Math.sin(performance.now() / 60) * 6; }
+      g.globalAlpha = dead ? 0.2 : holding ? 0.95 : 0.6;
+      g.fillStyle = dead ? '#777' : holding ? COLORS.hold : COLORS[n.stroke];
+      roundRect(W / 2 - tw / 2, yEnd, tw, Math.max(0, yHead - yEnd), tw / 2);
+      g.fill();
+      // end cap
+      g.globalAlpha = dead ? 0.25 : 1;
+      g.fillRect(W / 2 - tw * 0.9, yEnd - 2, tw * 1.8, 4);
+      g.restore();
+    }
+
+    function drawGem(n: Note, y: number) {
+      const missed = n.result === 'miss';
+      const chop = !!n.chop;
+      const gemW = laneW * (chop ? 0.5 : 0.78), gemH = 24;
+      const x = (W - gemW) / 2;
+      const color = COLORS[n.stroke];
+      g.save();
+      g.globalAlpha = missed ? 0.25 : 1;
+      if (!missed) { g.shadowColor = color; g.shadowBlur = 14; }
+      g.fillStyle = missed ? '#666' : color;
+      roundRect(x, y - gemH / 2, gemW, gemH, chop ? 4 : 8);
+      g.fill();
+      g.shadowBlur = 0;
+      if (chop && !missed) { g.strokeStyle = '#fff'; g.lineWidth = 2; g.stroke(); }
+      g.fillStyle = 'rgba(255,255,255,0.35)';
+      roundRect(x + 4, y - gemH / 2 + 3, gemW - 8, 6, 3);
+      g.fill();
+      g.fillStyle = '#1a1033';
+      g.strokeStyle = '#1a1033';
+      const ax = W / 2, s = 7;
+      if (n.stroke === 'mute') {
+        g.lineWidth = 3;
+        g.beginPath();
+        g.moveTo(ax - s, y - s + 1); g.lineTo(ax + s, y + s - 1);
+        g.moveTo(ax + s, y - s + 1); g.lineTo(ax - s, y + s - 1);
+        g.stroke();
+      } else {
+        g.beginPath();
+        if (n.stroke === 'down') { g.moveTo(ax - s, y - 4); g.lineTo(ax + s, y - 4); g.lineTo(ax, y + 6); }
+        else { g.moveTo(ax - s, y + 4); g.lineTo(ax + s, y + 4); g.lineTo(ax, y - 6); }
+        g.fill();
+        if (chop) { g.beginPath(); g.arc(ax + 16, y, 3, 0, Math.PI * 2); g.fill(); } // staccato dot
+      }
+      g.restore();
     }
 
     function draw(now: number) {
@@ -181,6 +309,12 @@ export function Game({ engine, settings, onFinish, onQuit }: Props) {
         }
       }
 
+      // tails of long notes (behind the gems)
+      for (const n of notes) {
+        if (yFor(n.time, now) < -40) break;
+        if (n.len) drawTail(n, now);
+      }
+
       // hit line
       pulse *= 0.9;
       g.save();
@@ -191,33 +325,12 @@ export function Game({ engine, settings, onFinish, onQuit }: Props) {
       g.restore();
 
       // notes
-      const gemW = laneW * 0.78, gemH = 24;
       for (const n of notes) {
         const y = yFor(n.time, now);
         if (y < -40) break;
         if (y > H + 40 || n.result === 'perfect' || n.result === 'good' || n.result === 'wrong') continue;
-        const x = (W - gemW) / 2;
-        const missed = n.result === 'miss';
-        const color = COLORS[n.stroke];
-        g.save();
-        g.globalAlpha = missed ? 0.25 : 1;
-        if (!missed) { g.shadowColor = color; g.shadowBlur = 14; }
-        g.fillStyle = missed ? '#666' : color;
-        roundRect(x, y - gemH / 2, gemW, gemH, 8);
-        g.fill();
-        g.shadowBlur = 0;
-        g.fillStyle = 'rgba(255,255,255,0.35)';
-        roundRect(x + 4, y - gemH / 2 + 3, gemW - 8, 6, 3);
-        g.fill();
-        // stroke arrow
-        g.fillStyle = '#1a1033';
-        g.beginPath();
-        const ax = W / 2, s = 7;
-        if (n.stroke === 'down') { g.moveTo(ax - s, y - 4); g.lineTo(ax + s, y - 4); g.lineTo(ax, y + 6); }
-        else { g.moveTo(ax - s, y + 4); g.lineTo(ax + s, y + 4); g.lineTo(ax, y - 6); }
-        g.fill();
-        g.restore();
-        if (n.chordChange && !missed) {
+        drawGem(n, y);
+        if (n.chordChange && n.result !== 'miss') {
           g.fillStyle = '#fff';
           g.font = '14px "Press Start 2P", monospace';
           g.textAlign = 'right';
@@ -247,21 +360,22 @@ export function Game({ engine, settings, onFinish, onQuit }: Props) {
       }
       g.globalAlpha = 1;
 
-      // judgement popups
-      for (let i = popups.length - 1; i >= 0; i--) {
-        const p = popups[i];
-        const age = (t - p.born) / 600;
-        if (age >= 1 || i < popups.length - 2) { popups.splice(i, 1); continue; }
+      // judgement popups (newest lowest, older ones float up)
+      while (popups.length > 3) popups.shift();
+      popups.forEach((p, i) => {
+        const age = (t - p.born) / 700;
+        if (age >= 1) return;
+        const lift = (popups.length - 1 - i) * 34 + age * 30;
         g.globalAlpha = 1 - age;
         g.fillStyle = p.color;
         g.font = '18px "Press Start 2P", monospace';
         g.textAlign = 'center';
-        g.fillText(p.text, W / 2, hitY - 50 - age * 30);
+        g.fillText(p.text, W / 2, hitY - 50 - lift);
         if (p.sub) {
           g.font = '10px "Press Start 2P", monospace';
-          g.fillText(p.sub, W / 2, hitY - 28 - age * 30);
+          g.fillText(p.sub, W / 2, hitY - 30 - lift);
         }
-      }
+      });
       g.globalAlpha = 1;
     }
 
@@ -273,6 +387,7 @@ export function Game({ engine, settings, onFinish, onQuit }: Props) {
       offChord();
       ro.disconnect();
       window.removeEventListener('keydown', onKey);
+      window.removeEventListener('keyup', onKeyUp);
       engine.stopSession();
     };
   }, [engine, notes, prog, settings]);

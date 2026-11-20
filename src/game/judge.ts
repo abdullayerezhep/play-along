@@ -10,11 +10,15 @@ export type Stats = {
   perfect: number;
   good: number;
   miss: number;
-  wrong: number; // on time, but the wrong chord
+  wrong: number; // on time, but the wrong chord (or a chuck that rang out)
+  holds: number; // long notes whose head was hit
+  holdsDone: number; // ...and were rung all the way through
+  chops: number;
+  chopsOk: number;
   offsets: number[];
 };
 
-export const emptyStats = (): Stats => ({ score: 0, combo: 0, maxCombo: 0, perfect: 0, good: 0, miss: 0, wrong: 0, offsets: [] });
+export const emptyStats = (): Stats => ({ score: 0, combo: 0, maxCombo: 0, perfect: 0, good: 0, miss: 0, wrong: 0, holds: 0, holdsDone: 0, chops: 0, chopsOk: 0, offsets: [] });
 
 export const multiplier = (combo: number) => Math.min(4, 1 + Math.floor(combo / 8));
 
@@ -60,6 +64,16 @@ export function rejectChord(n: Note, stats: Stats) {
   n.result = 'wrong';
   stats.wrong++;
   stats.combo = 0;
+}
+
+/** Points for a long note so far: 10 per sixteenth held. Returns the increase to add. */
+export function holdTick(n: Note, now: number, spb: number, stats: Stats): number {
+  const held = Math.max(0, Math.min(now, n.endTime ?? n.time) - n.time);
+  const pts = Math.floor(held / (spb / 4)) * 10 * multiplier(stats.combo);
+  const gain = Math.max(0, pts - (n.holdPoints ?? 0));
+  n.holdPoints = Math.max(pts, n.holdPoints ?? 0);
+  stats.score += gain;
+  return gain;
 }
 
 /** Mark notes the player let slip past. Returns newly missed notes. */

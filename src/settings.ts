@@ -6,19 +6,23 @@ export type AppSettings = SongSettings & {
   metronome: boolean;
   bassLine: boolean;
   checkChords: boolean;
+  ringOut: boolean;
 };
 
 const KEY = 'play-along:settings';
 
 export const defaultSettings: AppSettings = {
   bpm: 80, bars: 16, patternId: 'quarters', progressionId: 'pop',
-  latencyMs: 0, sensitivity: 0.6, metronome: true, bassLine: true, checkChords: true,
+  latencyMs: 0, sensitivity: 0.6, metronome: true, bassLine: true, checkChords: true, ringOut: true,
 };
 
 export function loadSettings(): AppSettings {
   try {
     const raw = localStorage.getItem(KEY);
-    return raw ? { ...defaultSettings, ...JSON.parse(raw) } : defaultSettings;
+    if (!raw) return defaultSettings;
+    const s = { ...defaultSettings, ...JSON.parse(raw) };
+    if (s.patternId === 'one') s.patternId = 'ring'; // renamed pattern
+    return s;
   } catch {
     return defaultSettings;
   }

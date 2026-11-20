@@ -56,7 +56,7 @@ class OnsetDetector extends AudioWorkletProcessor {
 
     this.peak = Math.max(this.peak, Math.sqrt(lo));
     if (++this.blocks >= 8) {
-      this.port.postMessage({ type: 'level', value: this.peak });
+      this.port.postMessage({ type: 'level', value: this.peak, time: currentTime });
       this.peak = 0;
       this.blocks = 0;
     }

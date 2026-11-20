@@ -1,4 +1,5 @@
 import { chromaFromSpectrum, classify, type ChordResult } from './chords';
+import { LevelHistory } from './decay';
 import { onsetWorkletUrl } from './onsetWorklet';
 
 export type Onset = { time: number; level: number; source: 'mic' | 'key' };
@@ -17,6 +18,11 @@ export class AudioEngine {
   readonly ctx: AudioContext;
   level = 0;
   micReady = false;
+  /** Recent mic loudness, for telling ringing chords from muted ones. */
+  readonly history = new LevelHistory();
+  /** Space bar strum is held down (keyboard stand-in for "let it ring"). */
+  keyHeld = false;
+  keyReleasedAt = -Infinity;
   private node?: AudioWorkletNode;
   private stream?: MediaStream;
   private listeners = new Set<OnsetListener>();
@@ -46,7 +52,7 @@ export class AudioEngine {
     src.connect(this.analyser).connect(mute);
     this.node.port.onmessage = (e: MessageEvent) => {
       const d = e.data;
-      if (d.type === 'level') this.level = d.value;
+      if (d.type === 'level') { this.level = d.value; this.history.push(d.time, d.value); }
       else if (d.type === 'onset') {
         this.emit({ time: d.time, level: d.level, source: 'mic' });
         this.listenForChord(d.time);
@@ -61,7 +67,13 @@ export class AudioEngine {
 
   /** Keyboard / tap fallback so the game can be tried without a guitar. */
   tap() {
+    this.keyHeld = true;
     this.emit({ time: this.ctx.currentTime, level: 1, source: 'key' });
+  }
+
+  release() {
+    this.keyHeld = false;
+    this.keyReleasedAt = this.ctx.currentTime;
   }
 
   /**

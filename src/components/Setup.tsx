@@ -88,11 +88,21 @@ export function Setup({ engine, settings, onChange, onStart, onCalibrate }: Prop
           <label><input type="checkbox" checked={settings.metronome} onChange={(e) => set('metronome', e.target.checked)} /> Metronome</label>
           <label><input type="checkbox" checked={settings.bassLine} onChange={(e) => set('bassLine', e.target.checked)} /> Bass line</label>
           <label><input type="checkbox" checked={settings.checkChords} onChange={(e) => set('checkChords', e.target.checked)} /> Check chords</label>
+          <label><input type="checkbox" checked={settings.ringOut} onChange={(e) => set('ringOut', e.target.checked)} /> Ring out ending</label>
         </div>
       </section>
 
+      <section className="panel legend">
+        <h2>How to read the notes</h2>
+        <div className="legend-row"><span className="gem down">▼</span> <span>Downstrum</span></div>
+        <div className="legend-row"><span className="gem up">▲</span> <span>Upstrum</span></div>
+        <div className="legend-row"><span className="gem down tail">▼</span> <span>Long note: strum and <b>let it ring</b> to the end of the tail. Don't mute or strum again.</span></div>
+        <div className="legend-row"><span className="gem mute">✕</span> <span>Chuck: strum with the strings muted for a dead "chk"</span></div>
+        <div className="legend-row"><span className="gem down chop">▼•</span> <span>Chop: strum, then <b>mute right away</b></span></div>
+      </section>
+
       <button className="btn big" onClick={onStart}>▶ START</button>
-      <p className="muted small center">No guitar handy? Press <kbd>Space</kbd> to strum. <kbd>Esc</kbd> quits a song.</p>
+      <p className="muted small center">No guitar handy? Press <kbd>Space</kbd> to strum (hold it for long notes, tap quickly for chops). <kbd>Esc</kbd> quits a song.</p>
     </div>
   );
 }

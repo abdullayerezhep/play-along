@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "bench:chords": "esbuild scripts/chord-bench.ts --bundle --platform=node --log-level=warning --outfile=node_modules/.cache/chord-bench.cjs && BEFORE=1 node node_modules/.cache/chord-bench.cjs"
+    "bench:chords": "esbuild scripts/chord-bench.ts --bundle --platform=node --log-level=warning --outfile=node_modules/.cache/chord-bench.cjs && BEFORE=1 node node_modules/.cache/chord-bench.cjs",
+    "bench:decay": "esbuild scripts/decay-bench.ts --bundle --platform=node --log-level=error --outfile=node_modules/.cache/decay-bench.cjs && node node_modules/.cache/decay-bench.cjs"
   },
   "dependencies": {
     "react": "^18.3.1",
