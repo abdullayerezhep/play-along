@@ -21,9 +21,13 @@ export function Results({ stats, onRetry, onMenu }: Props) {
         <div className="tally">
           <div><span className="perfect">PERFECT</span><strong>{stats.perfect}</strong></div>
           <div><span className="good">GOOD</span><strong>{stats.good}</strong></div>
+          <div><span className="miss">WRONG CHORD</span><strong>{stats.wrong}</strong></div>
           <div><span className="miss">MISS</span><strong>{stats.miss}</strong></div>
         </div>
         <p className="small">{tip}</p>
+        {stats.wrong > stats.miss && stats.wrong >= 3 && (
+          <p className="small muted">Most points were lost to wrong chords. Try a slower tempo and watch the NEXT chord so your hand moves early.</p>
+        )}
         <div className="row">
           <button className="btn" onClick={onRetry}>↻ Retry</button>
           <button className="btn ghost" onClick={onMenu}>Menu</button>

@@ -5,13 +5,14 @@ export type AppSettings = SongSettings & {
   sensitivity: number;
   metronome: boolean;
   bassLine: boolean;
+  checkChords: boolean;
 };
 
 const KEY = 'play-along:settings';
 
 export const defaultSettings: AppSettings = {
   bpm: 80, bars: 16, patternId: 'quarters', progressionId: 'pop',
-  latencyMs: 0, sensitivity: 0.6, metronome: true, bassLine: true,
+  latencyMs: 0, sensitivity: 0.6, metronome: true, bassLine: true, checkChords: true,
 };
 
 export function loadSettings(): AppSettings {

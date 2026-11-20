@@ -1,7 +1,13 @@
+import { chromaFromSpectrum, classify, type ChordResult } from './chords';
 import { onsetWorkletUrl } from './onsetWorklet';
 
 export type Onset = { time: number; level: number; source: 'mic' | 'key' };
 type OnsetListener = (o: Onset) => void;
+export type ChordHeard = { onsetTime: number; result: ChordResult };
+type ChordListener = (c: ChordHeard) => void;
+
+/** How long after a strum to look at the spectrum: long enough that the window is mostly the new chord. */
+const CHORD_DELAY = 0.16;
 
 /**
  * Owns the AudioContext, the microphone, the strum detector and the
@@ -14,6 +20,8 @@ export class AudioEngine {
   private node?: AudioWorkletNode;
   private stream?: MediaStream;
   private listeners = new Set<OnsetListener>();
+  private chordListeners = new Set<ChordListener>();
+  private analyser?: AnalyserNode;
   private session?: GainNode;
 
   constructor() {
@@ -32,10 +40,17 @@ export class AudioEngine {
     const mute = this.ctx.createGain();
     mute.gain.value = 0; // keep the worklet pulled without hearing the mic
     src.connect(this.node).connect(mute).connect(this.ctx.destination);
+    this.analyser = this.ctx.createAnalyser();
+    this.analyser.fftSize = 8192;
+    this.analyser.smoothingTimeConstant = 0;
+    src.connect(this.analyser).connect(mute);
     this.node.port.onmessage = (e: MessageEvent) => {
       const d = e.data;
       if (d.type === 'level') this.level = d.value;
-      else if (d.type === 'onset') this.emit({ time: d.time, level: d.level, source: 'mic' });
+      else if (d.type === 'onset') {
+        this.emit({ time: d.time, level: d.level, source: 'mic' });
+        this.listenForChord(d.time);
+      }
     };
     this.micReady = true;
   }
@@ -47,6 +62,29 @@ export class AudioEngine {
   /** Keyboard / tap fallback so the game can be tried without a guitar. */
   tap() {
     this.emit({ time: this.ctx.currentTime, level: 1, source: 'key' });
+  }
+
+  /**
+   * Snapshot the spectrum now (mostly the previous chord still ringing), and again
+   * a moment later; the difference is what this strum added.
+   */
+  private listenForChord(onsetTime: number) {
+    const an = this.analyser;
+    if (!an || !this.chordListeners.size) return;
+    const before = new Float32Array(an.frequencyBinCount);
+    an.getFloatFrequencyData(before);
+    const wait = Math.max(0, CHORD_DELAY - (this.ctx.currentTime - onsetTime));
+    setTimeout(() => {
+      const after = new Float32Array(an.frequencyBinCount);
+      an.getFloatFrequencyData(after);
+      const result = classify(chromaFromSpectrum(after, this.ctx.sampleRate, before));
+      this.chordListeners.forEach((fn) => fn({ onsetTime, result }));
+    }, wait * 1000);
+  }
+
+  onChord(fn: ChordListener): () => void {
+    this.chordListeners.add(fn);
+    return () => this.chordListeners.delete(fn);
   }
 
   onOnset(fn: OnsetListener): () => void {

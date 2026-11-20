@@ -6,6 +6,7 @@ export function LevelMeter({ engine }: { engine: AudioEngine }) {
   const bar = useRef<HTMLDivElement>(null);
   const [strums, setStrums] = useState(0);
   const [flash, setFlash] = useState(false);
+  const [chord, setChord] = useState('');
 
   useEffect(() => {
     let raf = 0;
@@ -23,14 +24,16 @@ export function LevelMeter({ engine }: { engine: AudioEngine }) {
       clearTimeout(t);
       t = window.setTimeout(() => setFlash(false), 120);
     });
-    return () => { cancelAnimationFrame(raf); off(); clearTimeout(t); };
+    const offChord = engine.onChord(({ result }) => setChord(result.clarity < 0.55 ? '?' : result.best.name));
+    return () => { cancelAnimationFrame(raf); off(); offChord(); clearTimeout(t); };
   }, [engine]);
 
   return (
     <div className="meter-row">
       <div className="meter"><div ref={bar} className="meter-fill" /></div>
       <div className={`strum-lamp ${flash ? 'on' : ''}`}>STRUM</div>
-      <span className="muted small">{strums} detected</span>
+      <div className="heard-chord" title="Last chord heard">{chord || '–'}</div>
+      <span className="muted small">{strums}</span>
     </div>
   );
 }

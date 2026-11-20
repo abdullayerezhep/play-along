@@ -10,15 +10,19 @@ export type Stats = {
   perfect: number;
   good: number;
   miss: number;
+  wrong: number; // on time, but the wrong chord
   offsets: number[];
 };
 
-export const emptyStats = (): Stats => ({ score: 0, combo: 0, maxCombo: 0, perfect: 0, good: 0, miss: 0, offsets: [] });
+export const emptyStats = (): Stats => ({ score: 0, combo: 0, maxCombo: 0, perfect: 0, good: 0, miss: 0, wrong: 0, offsets: [] });
 
 export const multiplier = (combo: number) => Math.min(4, 1 + Math.floor(combo / 8));
 
-/** Match a strum (in song seconds) to the closest unjudged note. Returns the note it hit, if any. */
-export function judgeStrum(notes: Note[], t: number, stats: Stats): Note | undefined {
+/**
+ * Match a strum (in song seconds) to the closest unjudged note and grade its timing.
+ * If `awaitChord` is set, points and combo wait for confirmChord/rejectChord.
+ */
+export function judgeStrum(notes: Note[], t: number, stats: Stats, awaitChord: boolean): Note | undefined {
   let best: Note | undefined;
   let bestDist = Infinity;
   for (const n of notes) {
@@ -30,12 +34,32 @@ export function judgeStrum(notes: Note[], t: number, stats: Stats): Note | undef
   if (!best || bestDist > GOOD_WINDOW) return undefined;
   best.offset = t - best.time;
   best.result = bestDist <= PERFECT_WINDOW ? 'perfect' : 'good';
+  stats.offsets.push(best.offset);
+  if (awaitChord) best.awaitingChord = true;
+  else award(best, stats);
+  return best;
+}
+
+function award(n: Note, stats: Stats) {
+  const r = n.result as 'perfect' | 'good';
+  stats[r]++;
   stats.combo++;
   stats.maxCombo = Math.max(stats.maxCombo, stats.combo);
-  stats[best.result]++;
-  stats.offsets.push(best.offset);
-  stats.score += (best.result === 'perfect' ? 100 : 50) * multiplier(stats.combo);
-  return best;
+  stats.score += (r === 'perfect' ? 100 : 50) * multiplier(stats.combo);
+}
+
+export function confirmChord(n: Note, stats: Stats) {
+  if (!n.awaitingChord) return;
+  n.awaitingChord = false;
+  award(n, stats);
+}
+
+export function rejectChord(n: Note, stats: Stats) {
+  if (!n.awaitingChord) return;
+  n.awaitingChord = false;
+  n.result = 'wrong';
+  stats.wrong++;
+  stats.combo = 0;
 }
 
 /** Mark notes the player let slip past. Returns newly missed notes. */
@@ -54,7 +78,7 @@ export function sweepMisses(notes: Note[], t: number, stats: Stats): Note[] {
 }
 
 export function accuracy(s: Stats) {
-  const total = s.perfect + s.good + s.miss;
+  const total = s.perfect + s.good + s.miss + s.wrong;
   return total ? (s.perfect + s.good * 0.6) / total : 0;
 }
 

@@ -172,3 +172,11 @@ kbd { font-family: var(--pixel); font-size: 9px; padding: 3px 5px; border: 1px s
 .perfect { color: #7cff6b; }
 .good { color: #ffe066; }
 .miss { color: #ff4d6d; }
+
+.heard-chord {
+  font-family: var(--pixel); font-size: 12px; min-width: 52px; text-align: center;
+  padding: 6px 8px; border-radius: 6px; border: 1px solid var(--line); color: var(--accent);
+}
+.hud-heard { font-family: var(--pixel); font-size: 10px; margin-top: 8px; padding: 6px 8px; border-radius: 6px; }
+.hud-heard.ok { color: #7cff6b; border: 1px solid rgba(124, 255, 107, 0.4); }
+.hud-heard.bad { color: #ff4d6d; border: 1px solid rgba(255, 77, 109, 0.4); }

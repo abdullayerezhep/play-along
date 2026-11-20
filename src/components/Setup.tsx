@@ -51,7 +51,7 @@ export function Setup({ engine, settings, onChange, onStart, onCalibrate }: Prop
               <input type="range" min={0} max={1} step={0.01} value={settings.sensitivity}
                 onChange={(e) => { const v = Number(e.target.value); set('sensitivity', v); engine.setSensitivity(v); }} />
             </label>
-            <p className="muted small">Strum a few times: each strum should light up STRUM once. Lower it if it fires on ringing strings, raise it if it misses soft strums.</p>
+            <p className="muted small">Strum a few times: each strum should light up STRUM once and show the chord it heard. Lower it if it fires on ringing strings, raise it if it misses soft strums.</p>
             <div className="latency">
               <span>Latency offset: <strong>{settings.latencyMs} ms</strong></span>
               <button className="btn ghost" onClick={onCalibrate}>Calibrate</button>
@@ -87,6 +87,7 @@ export function Setup({ engine, settings, onChange, onStart, onCalibrate }: Prop
         <div className="toggles">
           <label><input type="checkbox" checked={settings.metronome} onChange={(e) => set('metronome', e.target.checked)} /> Metronome</label>
           <label><input type="checkbox" checked={settings.bassLine} onChange={(e) => set('bassLine', e.target.checked)} /> Bass line</label>
+          <label><input type="checkbox" checked={settings.checkChords} onChange={(e) => set('checkChords', e.target.checked)} /> Check chords</label>
         </div>
       </section>
 

@@ -7,7 +7,8 @@ export type Note = {
   stroke: Stroke;
   chord: string;
   chordChange: boolean;
-  result?: 'perfect' | 'good' | 'miss';
+  result?: 'perfect' | 'good' | 'miss' | 'wrong';
+  awaitingChord?: boolean;
   offset?: number; // seconds, +late / -early
 };
 

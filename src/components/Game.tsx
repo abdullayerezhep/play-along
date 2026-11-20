@@ -1,23 +1,25 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { matchesChord } from '../audio/chords';
 import type { AudioEngine } from '../audio/engine';
 import { BEATS_PER_BAR, PROGRESSIONS, buildChart, chordForBar, rootFreq, type Note } from '../game/chart';
-import { emptyStats, judgeStrum, multiplier, sweepMisses, type Stats } from '../game/judge';
+import { confirmChord, emptyStats, judgeStrum, multiplier, rejectChord, sweepMisses, type Stats } from '../game/judge';
 import type { AppSettings } from '../settings';
 import { ChordDiagram } from './ChordDiagram';
 
 type Props = { engine: AudioEngine; settings: AppSettings; onFinish: (s: Stats) => void; onQuit: () => void };
 
-type Popup = { text: string; color: string; born: number };
+type Popup = { text: string; sub?: string; color: string; born: number };
 type Spark = { x: number; y: number; vx: number; vy: number; born: number; color: string };
 
 const LOOKAHEAD = 2.2; // seconds of notes visible above the hit line
-const COLORS = { down: '#ff9f43', up: '#3de0ff', perfect: '#7CFF6B', good: '#ffe066', miss: '#ff4d6d' };
+const COLORS = { down: '#ff9f43', up: '#3de0ff', perfect: '#7CFF6B', good: '#ffe066', miss: '#ff4d6d', wrong: '#ff4d6d' };
 
 export function Game({ engine, settings, onFinish, onQuit }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const notes = useMemo<Note[]>(() => buildChart(settings), [settings]);
   const prog = PROGRESSIONS.find((p) => p.id === settings.progressionId) ?? PROGRESSIONS[0];
   const [hud, setHud] = useState({ score: 0, combo: 0, bar: -1, progress: 0 });
+  const [heard, setHeard] = useState<{ name: string; ok: boolean } | null>(null);
 
   const finishRef = useRef(onFinish);
   const quitRef = useRef(onQuit);
@@ -49,15 +51,33 @@ export function Game({ engine, settings, onFinish, onQuit }: Props) {
     const end = totalBeats * spb + 0.8;
 
     // --- input ----------------------------------------------------------
+    // strums waiting for the chord check, keyed by onset time
+    const pending = new Map<number, Note>();
     const off = engine.onOnset((o) => {
       if (done) return;
       const t = o.time - start - (o.source === 'mic' ? latency : 0);
       pulse = 1;
-      const hit = judgeStrum(notes, t, stats);
+      const check = settings.checkChords && o.source === 'mic';
+      const hit = judgeStrum(notes, t, stats, check);
+      if (hit && check) pending.set(o.time, hit);
       if (hit) {
         const color = COLORS[hit.result as 'perfect' | 'good'];
         popups.push({ text: hit.result === 'perfect' ? 'PERFECT' : 'GOOD', color, born: performance.now() });
         burst(color, hit.result === 'perfect' ? 22 : 12);
+      }
+    });
+    const offChord = engine.onChord(({ onsetTime, result }) => {
+      if (done) return;
+      const note = pending.get(onsetTime);
+      pending.delete(onsetTime);
+      const heardName = result.clarity < 0.55 ? '?' : result.best.name;
+      if (!note) { setHeard({ name: heardName, ok: false }); return; }
+      const ok = matchesChord(result, note.chord);
+      setHeard({ name: ok ? note.chord : heardName, ok });
+      if (ok) confirmChord(note, stats);
+      else {
+        rejectChord(note, stats);
+        popups.push({ text: 'WRONG CHORD', sub: `heard ${heardName}, needed ${note.chord}`, color: COLORS.wrong, born: performance.now() });
       }
     });
     const onKey = (e: KeyboardEvent) => {
@@ -97,6 +117,10 @@ export function Game({ engine, settings, onFinish, onQuit }: Props) {
     let lastHud = '';
     const frame = () => {
       const now = engine.now - start;
+      // safety net: if a chord check never came back, give the player the benefit of the doubt
+      for (const [onsetTime, n] of pending) {
+        if (ctx.currentTime - onsetTime > 0.6) { confirmChord(n, stats); pending.delete(onsetTime); }
+      }
       const missed = sweepMisses(notes, now, stats);
       if (missed.length) popups.push({ text: 'MISS', color: COLORS.miss, born: performance.now() });
 
@@ -171,7 +195,7 @@ export function Game({ engine, settings, onFinish, onQuit }: Props) {
       for (const n of notes) {
         const y = yFor(n.time, now);
         if (y < -40) break;
-        if (y > H + 40 || n.result === 'perfect' || n.result === 'good') continue;
+        if (y > H + 40 || n.result === 'perfect' || n.result === 'good' || n.result === 'wrong') continue;
         const x = (W - gemW) / 2;
         const missed = n.result === 'miss';
         const color = COLORS[n.stroke];
@@ -233,6 +257,10 @@ export function Game({ engine, settings, onFinish, onQuit }: Props) {
         g.font = '18px "Press Start 2P", monospace';
         g.textAlign = 'center';
         g.fillText(p.text, W / 2, hitY - 50 - age * 30);
+        if (p.sub) {
+          g.font = '10px "Press Start 2P", monospace';
+          g.fillText(p.sub, W / 2, hitY - 28 - age * 30);
+        }
       }
       g.globalAlpha = 1;
     }
@@ -242,6 +270,7 @@ export function Game({ engine, settings, onFinish, onQuit }: Props) {
       done = true;
       cancelAnimationFrame(raf);
       off();
+      offChord();
       ro.disconnect();
       window.removeEventListener('keydown', onKey);
       engine.stopSession();
@@ -267,6 +296,9 @@ export function Game({ engine, settings, onFinish, onQuit }: Props) {
         <div className="hud-chord">{current}</div>
         <ChordDiagram chord={current} size={86} />
         <div className="hud-label">NEXT · {next}</div>
+        {settings.checkChords && heard && (
+          <div className={`hud-heard ${heard.ok ? 'ok' : 'bad'}`}>heard {heard.name}</div>
+        )}
       </div>
       <div className="hud-bottom">
         <div className="progress"><div style={{ width: `${hud.progress * 100}%` }} /></div>
