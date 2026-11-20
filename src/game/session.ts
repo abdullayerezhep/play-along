@@ -77,6 +77,7 @@ export class Session {
   strum(s: StrumInput) {
     const { notes, emit, spb } = this.o;
     const t = s.time - this.o.startTime - (s.source === 'mic' ? this.o.latency : 0);
+    if (s.source === 'key') this.stats.keyStrums++;
 
     // strumming again cuts off a chord that was meant to ring
     for (const n of notes) {

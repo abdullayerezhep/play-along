@@ -1,8 +1,8 @@
 import { accuracy, grade, median, type Stats } from '../game/judge';
 
-type Props = { stats: Stats; calibrated: boolean; usedMic: boolean; onRetry: () => void; onMenu: () => void };
+type Props = { stats: Stats; newBest: boolean; calibrated: boolean; usedMic: boolean; onRetry: () => void; onMenu: () => void };
 
-export function Results({ stats, calibrated, usedMic, onRetry, onMenu }: Props) {
+export function Results({ stats, newBest, calibrated, usedMic, onRetry, onMenu }: Props) {
   const acc = accuracy(stats);
   const g = grade(acc);
   const lean = Math.round(median(stats.offsets) * 1000);
@@ -16,6 +16,7 @@ export function Results({ stats, calibrated, usedMic, onRetry, onMenu }: Props) 
   return (
     <div className="menu results">
       <div className={`grade grade-${g}`} aria-label={`Grade ${g}`}>{g}</div>
+      {newBest && <p className="new-best">Your best on this song so far</p>}
       <div className="final-score">{stats.score.toLocaleString()}</div>
       <p className="lede">{Math.round(acc * 100)}% accurate, longest streak {stats.maxCombo}</p>
       <dl className="tally">

@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import type { AudioEngine } from '../audio/engine';
-import { CUSTOM_ID, PATTERNS, PROGRESSIONS, getProgression, lengthOptions, parseSong, songLength, type Pattern } from '../game/chart';
+import type { Best } from '../best';
+import { CUSTOM_ID, PATTERNS, getProgression, lengthOptions, parseSong, songLength, type Pattern } from '../game/chart';
 import { isCalibrated, type AppSettings } from '../settings';
 import { LevelMeter } from './LevelMeter';
+import { SongPicker } from './SongPicker';
 
 type Props = {
   engine: AudioEngine;
   settings: AppSettings;
+  best: Best;
   onChange: (s: AppSettings) => void;
   onStart: () => void;
   onCalibrate: () => void;
@@ -30,9 +33,7 @@ function PatternStrip({ pattern }: { pattern: Pattern }) {
   return <span className="strip" aria-hidden>{cells}</span>;
 }
 
-const uniqueChords = (bars: string[][]) => [...new Set(bars.flat())];
-
-export function Setup({ engine, settings, onChange, onStart, onCalibrate, onTune }: Props) {
+export function Setup({ engine, settings, best, onChange, onStart, onCalibrate, onTune }: Props) {
   const [micReady, setMicReady] = useState(engine.micReady);
   const [micError, setMicError] = useState('');
   const [askMic, setAskMic] = useState(false);
@@ -98,29 +99,7 @@ export function Setup({ engine, settings, onChange, onStart, onCalibrate, onTune
       </section>
 
       <div className="pickers">
-        <fieldset className="picker">
-          <legend>Song</legend>
-          {PROGRESSIONS.map((p) => (
-            <label key={p.id} className={`row${settings.progressionId === p.id ? ' on' : ''}`}>
-              <input type="radio" name="prog" checked={settings.progressionId === p.id} onChange={() => set('progressionId', p.id)} />
-              <span className="row-name">{p.name}</span>
-              <span className="chips">
-                {(p.bars.length > 4 ? uniqueChords(p.bars) : p.bars.flat()).map((c, i) => <span key={i} className="chip">{c}</span>)}
-              </span>
-            </label>
-          ))}
-          <label className={`row own${custom ? ' on' : ''}`}>
-            <input type="radio" name="prog" checked={custom} onChange={() => set('progressionId', CUSTOM_ID)} />
-            <span className="row-name">Your own</span>
-            <input type="text" className="song-input" value={settings.customChords} placeholder="G D Em C" spellCheck={false}
-              aria-label="Chords of your own song" aria-invalid={!!songError}
-              onFocus={() => { if (!custom) set('progressionId', CUSTOM_ID); }}
-              onChange={(e) => onChange({ ...settings, progressionId: CUSTOM_ID, customChords: e.target.value })} />
-          </label>
-          {custom && (songError
-            ? <p className="error note">{songError}</p>
-            : <p className="note">One chord per bar. To put two chords in a bar, draw the bar lines: <code>| G | D | Em C |</code></p>)}
-        </fieldset>
+        <SongPicker settings={settings} best={best} onChange={onChange} />
 
         <fieldset className="picker">
           <legend>Strum pattern</legend>

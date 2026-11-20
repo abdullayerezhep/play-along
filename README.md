@@ -25,11 +25,8 @@ GitHub Pages on every push to `main` (one-time setup: Settings → Pages → Sou
    bass line stays off, because the mic would hear it as your guitar. The click is fine either way.
 4. Before your first song the game **measures the delay** of your mic and speakers
    (strum along to 12 ticks). Without it every strum looks late.
-5. Pick a **song**, or type your own chords:
-   - `G D Em C` is one chord per bar
-   - `| G | D | Em C |` puts two chords in the last bar
-   - major, minor and 7th chords work, with sharps and flats (`F#m`, `Bb`, `B7`)
-6. Pick a **strum pattern** and a tempo, then start.
+5. Pick a **song** from the library (see below). It sets a tempo and strum that suit it.
+6. Change the **strum pattern** or tempo if you like, then start.
 
 ### Reading the notes
 
@@ -49,6 +46,30 @@ your streak and counts against your grade. **Esc** pauses.
 
 No guitar nearby? **Space** strums: hold it for long notes, tap it for chops.
 
+## The song library
+
+35 songs in four levels. Your best grade on each song (played on a real guitar, not the
+Space bar) is shown next to it.
+
+| Level | What makes it that level | Examples |
+|---|---|---|
+| Warm-ups | short chord loops | Just Em, G–C–D, the four-chord loop |
+| Easy | two or three open chords, a whole bar or more per chord | Skip to My Lou, Tom Dooley, When the Saints Go Marching In |
+| Medium | more chords, minor keys, some changes mid-bar | Sloop John B, Bella Ciao, Whiskey in the Jar, Wellerman, 12-bar blues |
+| Hard | barre chords and fast changes | Korobeiniki, St. James Infirmary, La Bamba, Canon in D |
+
+Every built-in song is traditional or long out of copyright, in a common simple guitar
+arrangement. Folk songs have many versions, so the one you know may differ a little.
+Songs in waltz time (3/4) are not included yet, because the game only plays in 4/4.
+
+**My songs** is for everything else. Type the chords of any song you like and save it under a name:
+
+- `G D Em C` is one chord per bar
+- `| G | D | Em C |` puts two chords in the last bar
+- major, minor and 7th chords work, with sharps and flats (`F#m`, `Bb`, `B7`)
+
+To add a song to the built-in library, add one line to `src/game/songs.ts`.
+
 ## How it works
 
 | Part | File |
@@ -58,7 +79,7 @@ No guitar nearby? **Space** strums: hold it for long notes, tap it for chops.
 | **Ringing or muted.** A guitar fades gradually; a mute falls off a cliff. That breaks long notes and confirms chucks and chops. | `src/audio/decay.ts` |
 | **Tuner.** Pitch of a single string by autocorrelation. | `src/audio/pitch.ts` |
 | **Audio engine.** Mic, click, bass, all on the audio clock. | `src/audio/engine.ts` |
-| **Songs.** Patterns, chord loops, your own chords, chord shapes (open or barre) for any chord. | `src/game/chart.ts` |
+| **Songs.** The library, the chord-text reader, strum patterns, chord shapes (open or barre) for any chord. | `src/game/songs.ts`, `src/game/songText.ts`, `src/game/chart.ts` |
 | **Rules.** Which strum hits which note, extra strums, long notes, chops, scoring. No audio or drawing in here. | `src/game/session.ts`, `src/game/judge.ts` |
 | **Drawing.** The neck, strings and notes. | `src/game/highway.ts` |
 | **Screens.** Menu, game, delay measurement, tuner, results. | `src/components/` |
@@ -66,7 +87,7 @@ No guitar nearby? **Space** strums: hold it for long notes, tap it for chops.
 ## Tests
 
 ```bash
-npm test          # 38 tests, about 30 seconds
+npm test          # 46 tests, about 30 seconds
 npm run lint
 npm run typecheck
 ```

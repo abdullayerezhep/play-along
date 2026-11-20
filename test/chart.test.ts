@@ -1,9 +1,10 @@
 import { describe, expect, test } from 'vitest';
 import {
-  PROGRESSIONS, buildChart, chordAtBeat, getProgression, lengthOptions, nextChange, parseSong, rootFreq, shapeFor, songLength,
+  buildChart, chordAtBeat, getProgression, lengthOptions, nextChange, parseSong, rootFreq, shapeFor, songLength,
 } from '../src/game/chart';
+import { SONGS } from '../src/game/songs';
 
-const prog = (id: string) => PROGRESSIONS.find((p) => p.id === id)!;
+const prog = (id: string) => SONGS.find((p) => p.id === id)!;
 const song = (o: Partial<Parameters<typeof buildChart>[0]>) => buildChart({ bpm: 120, bars: 8, patternId: 'quarters', progressionId: 'pop', ...o });
 
 describe('typing your own song', () => {

@@ -12,6 +12,7 @@ export type Stats = {
   miss: number;
   wrong: number; // on time, but the wrong chord (or a chuck that rang out)
   extra: number; // strums where the song has no note
+  keyStrums: number; // strums made with the Space bar instead of a guitar
   holds: number; // long notes whose head was hit
   holdsDone: number; // ...and were rung all the way through
   chops: number;
@@ -19,7 +20,7 @@ export type Stats = {
   offsets: number[];
 };
 
-export const emptyStats = (): Stats => ({ score: 0, combo: 0, maxCombo: 0, perfect: 0, good: 0, miss: 0, wrong: 0, extra: 0, holds: 0, holdsDone: 0, chops: 0, chopsOk: 0, offsets: [] });
+export const emptyStats = (): Stats => ({ score: 0, combo: 0, maxCombo: 0, perfect: 0, good: 0, miss: 0, wrong: 0, extra: 0, keyStrums: 0, holds: 0, holdsDone: 0, chops: 0, chopsOk: 0, offsets: [] });
 
 export const multiplier = (combo: number) => Math.min(4, 1 + Math.floor(combo / 8));
 
@@ -104,7 +105,10 @@ export function accuracy(s: Stats) {
   return total ? (s.perfect + s.good * 0.6) / (total + s.extra * 0.5) : 0;
 }
 
-export function grade(acc: number) {
+export const GRADES = ['S', 'A', 'B', 'C', 'D'] as const;
+export type Grade = (typeof GRADES)[number];
+
+export function grade(acc: number): Grade {
   if (acc >= 0.95) return 'S';
   if (acc >= 0.85) return 'A';
   if (acc >= 0.7) return 'B';
