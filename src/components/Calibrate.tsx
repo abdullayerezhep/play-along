@@ -6,13 +6,18 @@ const BPM = 90;
 const COUNT_IN = 4;
 const CLICKS = 12;
 
-type Props = { engine: AudioEngine; onDone: (latencyMs: number | null) => void };
+type Props = {
+  engine: AudioEngine;
+  /** Shown automatically before the first song, so it offers to skip rather than go back. */
+  firstRun?: boolean;
+  onDone: (latencyMs: number | null) => void;
+};
 
 /**
  * Plays a steady click; the player strums along. The median gap between the
  * clicks and the detected strums is the round-trip latency of this setup.
  */
-export function Calibrate({ engine, onDone }: Props) {
+export function Calibrate({ engine, firstRun, onDone }: Props) {
   const [phase, setPhase] = useState<'ready' | 'running' | 'done'>('ready');
   const [beat, setBeat] = useState(-1);
   const [result, setResult] = useState<number | null>(null);
@@ -66,21 +71,21 @@ export function Calibrate({ engine, onDone }: Props) {
   return (
     <div className="menu calibrate">
       <section>
-        <h2>Measure the delay</h2>
-        <p className="lede">Your mic and speakers add a small delay. After 4 count-in clicks, strum once on each of the next {CLICKS}. Keep strums short and mute between them.</p>
+        <h2>{firstRun ? 'First, measure the delay' : 'Measure the delay'}</h2>
+        <p className="lede">Sound takes a moment to get through your speakers and mic. Without this, every strum looks late. After 4 count-in ticks, strum once on each of the next {CLICKS}. Keep strums short and mute between them.</p>
         <div className={`calib-dot ${phase === 'running' && beat >= 0 ? 'pulse' : ''}`} key={beat}>
           {phase === 'running' ? (counting ? (beat >= 0 ? `${COUNT_IN - beat}` : '') : 'Strum') : '♪'}
         </div>
         {phase === 'running' && <p className="dim">{hits} strums heard</p>}
         {phase === 'done' && (
           result === null
-            ? <p className="error">Fewer than 6 strums lined up with the clicks. Raise the sensitivity a little and try again.</p>
+            ? <p className="error">Fewer than 6 strums lined up with the ticks. Raise the sensitivity a little and try again.</p>
             : <p className="lede">Measured delay: <strong>{result} ms</strong></p>
         )}
         <div className="actions">
           {phase !== 'running' && <button className="btn" onClick={start}>{phase === 'done' ? 'Measure again' : 'Start'}</button>}
           {phase === 'done' && result !== null && <button className="btn" onClick={() => onDone(result)}>Use {result} ms</button>}
-          {phase !== 'running' && <button className="btn quiet" onClick={() => onDone(null)}>Back</button>}
+          {phase !== 'running' && <button className="btn quiet" onClick={() => onDone(null)}>{firstRun ? 'Skip for now' : 'Back'}</button>}
         </div>
       </section>
     </div>

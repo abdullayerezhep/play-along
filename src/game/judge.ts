@@ -11,6 +11,7 @@ export type Stats = {
   good: number;
   miss: number;
   wrong: number; // on time, but the wrong chord (or a chuck that rang out)
+  extra: number; // strums where the song has no note
   holds: number; // long notes whose head was hit
   holdsDone: number; // ...and were rung all the way through
   chops: number;
@@ -18,7 +19,7 @@ export type Stats = {
   offsets: number[];
 };
 
-export const emptyStats = (): Stats => ({ score: 0, combo: 0, maxCombo: 0, perfect: 0, good: 0, miss: 0, wrong: 0, holds: 0, holdsDone: 0, chops: 0, chopsOk: 0, offsets: [] });
+export const emptyStats = (): Stats => ({ score: 0, combo: 0, maxCombo: 0, perfect: 0, good: 0, miss: 0, wrong: 0, extra: 0, holds: 0, holdsDone: 0, chops: 0, chopsOk: 0, offsets: [] });
 
 export const multiplier = (combo: number) => Math.min(4, 1 + Math.floor(combo / 8));
 
@@ -91,9 +92,16 @@ export function sweepMisses(notes: Note[], t: number, stats: Stats): Note[] {
   return missed;
 }
 
+/** A strum that belongs to no note: it ends the streak and counts against the grade. */
+export function extraStrum(stats: Stats) {
+  stats.extra++;
+  stats.combo = 0;
+}
+
+/** Share of the song played right. Each extra strum weighs as half a missed note. */
 export function accuracy(s: Stats) {
   const total = s.perfect + s.good + s.miss + s.wrong;
-  return total ? (s.perfect + s.good * 0.6) / total : 0;
+  return total ? (s.perfect + s.good * 0.6) / (total + s.extra * 0.5) : 0;
 }
 
 export function grade(acc: number) {

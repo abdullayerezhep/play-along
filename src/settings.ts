@@ -1,7 +1,14 @@
 import type { SongSettings } from './game/chart';
 
+export type Output = 'speakers' | 'headphones';
+
 export type AppSettings = SongSettings & {
+  customChords: string;
+  /** Where the player hears the game. Through speakers the mic hears it too, so the bass line stays off. */
+  output: Output;
   latencyMs: number;
+  /** Which output the delay was measured on (null = never measured). */
+  calibratedFor: Output | null;
   sensitivity: number;
   metronome: boolean;
   bassLine: boolean;
@@ -12,8 +19,9 @@ export type AppSettings = SongSettings & {
 const KEY = 'play-along:settings';
 
 export const defaultSettings: AppSettings = {
-  bpm: 80, bars: 16, patternId: 'quarters', progressionId: 'pop',
-  latencyMs: 0, sensitivity: 0.6, metronome: true, bassLine: true, checkChords: true, ringOut: true,
+  bpm: 80, bars: 16, patternId: 'quarters', progressionId: 'pop', customChords: '',
+  output: 'speakers', latencyMs: 0, calibratedFor: null,
+  sensitivity: 0.6, metronome: true, bassLine: true, checkChords: true, ringOut: true,
 };
 
 export function loadSettings(): AppSettings {
@@ -31,3 +39,5 @@ export function loadSettings(): AppSettings {
 export function saveSettings(s: AppSettings) {
   try { localStorage.setItem(KEY, JSON.stringify(s)); } catch { /* storage unavailable */ }
 }
+
+export const isCalibrated = (s: AppSettings) => s.calibratedFor === s.output;

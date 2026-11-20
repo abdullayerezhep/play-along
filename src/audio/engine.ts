@@ -1,14 +1,26 @@
 import { chromaFromSpectrum, classify, type ChordResult } from './chords';
 import { LevelHistory } from './decay';
-import { onsetWorkletUrl } from './onsetWorklet';
+import { CLICK_HZ, onsetWorkletUrl } from './onsetWorklet';
 
 export type Onset = { time: number; level: number; source: 'mic' | 'key' };
 type OnsetListener = (o: Onset) => void;
-export type ChordHeard = { onsetTime: number; result: ChordResult };
+/** `result` is what the strum added to the sound; `plain` is everything sounding after it. */
+export type ChordHeard = { onsetTime: number; result: ChordResult; plain: ChordResult };
 type ChordListener = (c: ChordHeard) => void;
 
 /** How long after a strum to look at the spectrum: long enough that the window is mostly the new chord. */
 const CHORD_DELAY = 0.16;
+
+/**
+ * The metronome click: a soft-edged tone at one exact, high pitch. The smooth edges
+ * keep all of its energy at that pitch, where the strum detector has a notch, so the
+ * mic can hear the click without the game mistaking it for the guitar.
+ */
+export const CLICK = { freq: CLICK_HZ, sigma: 0.004, length: 0.024 };
+const CLICK_CURVE = Float32Array.from({ length: 64 }, (_, i) => {
+  const t = (i / 63) * CLICK.length - CLICK.length / 2;
+  return Math.exp(-(t * t) / (2 * CLICK.sigma * CLICK.sigma));
+});
 
 /**
  * Owns the AudioContext, the microphone, the strum detector and the
@@ -90,7 +102,8 @@ export class AudioEngine {
       const after = new Float32Array(an.frequencyBinCount);
       an.getFloatFrequencyData(after);
       const result = classify(chromaFromSpectrum(after, this.ctx.sampleRate, before));
-      this.chordListeners.forEach((fn) => fn({ onsetTime, result }));
+      const plain = classify(chromaFromSpectrum(after, this.ctx.sampleRate));
+      this.chordListeners.forEach((fn) => fn({ onsetTime, result, plain }));
     }, wait * 1000);
   }
 
@@ -123,18 +136,20 @@ export class AudioEngine {
     this.session = undefined;
   }
 
-  click(time: number, accent: boolean, volume = 0.35) {
+  /** A tick whose loudest point lands exactly on `time`. Bar starts are louder. */
+  click(time: number, accent: boolean, volume = 0.6) {
     const out = this.session ?? this.ctx.destination;
     const osc = this.ctx.createOscillator();
     const g = this.ctx.createGain();
-    osc.type = 'square';
-    osc.frequency.value = accent ? 1760 : 1175;
-    g.gain.setValueAtTime(0, time);
-    g.gain.linearRampToValueAtTime(volume * (accent ? 1 : 0.6), time + 0.002);
-    g.gain.exponentialRampToValueAtTime(0.0001, time + 0.05);
+    const start = Math.max(this.ctx.currentTime, time - CLICK.length / 2);
+    const peak = volume * (accent ? 1 : 0.5);
+    osc.type = 'sine';
+    osc.frequency.value = CLICK.freq;
+    g.gain.value = 0;
+    g.gain.setValueCurveAtTime(CLICK_CURVE.map((v) => v * peak), start, CLICK.length);
     osc.connect(g).connect(out);
-    osc.start(time);
-    osc.stop(time + 0.06);
+    osc.start(start);
+    osc.stop(start + CLICK.length + 0.005);
   }
 
   bass(time: number, freq: number, dur: number, volume = 0.3) {
@@ -152,6 +167,19 @@ export class AudioEngine {
     osc.connect(lp).connect(g).connect(out);
     osc.start(time);
     osc.stop(time + dur + 0.05);
+  }
+
+  /** Copy of the latest mic waveform (for the tuner). Returns false if the mic is off. */
+  readWaveform(buf: Float32Array<ArrayBuffer>): boolean {
+    if (!this.analyser) return false;
+    this.analyser.getFloatTimeDomainData(buf);
+    return true;
+  }
+
+  /** Rough mic+speaker delay from what the browser reports, used until the player measures it. */
+  estimatedLatencyMs(): number {
+    const out = (this.ctx.outputLatency || 0) + (this.ctx.baseLatency || 0);
+    return Math.round((out + 0.02) * 1000);
   }
 
   /** Visual clock: what the player is hearing right now. */

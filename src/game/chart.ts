@@ -1,3 +1,5 @@
+import { NOTE_NAMES, parseChord } from '../audio/chords';
+
 export type Stroke = 'down' | 'up' | 'mute';
 
 export type Note = {
@@ -31,69 +33,215 @@ export const PATTERNS: Pattern[] = [
   { id: 'ring', name: 'Let it ring', level: 'Warm-up', hits: [d(0, { len: 3.5 })] },
   { id: 'half', name: 'Half notes, let ring', level: 'Easy', hits: [d(0, { len: 1.5 }), d(2, { len: 1.5 })] },
   { id: 'quarters', name: 'Quarter downs', level: 'Easy', hits: [d(0), d(1), d(2), d(3)] },
-  { id: 'boom-chuck', name: 'Boom-chuck  D·X·D·X', level: 'Easy', hits: [d(0), x(1), d(2), x(3)] },
-  { id: 'folk', name: 'Folk strum  D·DU·UDU', level: 'Medium', hits: [d(0), d(1), u(1.5), u(2.5), d(3), u(3.5)] },
-  { id: 'folk-chuck', name: 'Folk with chucks  D·XU·UXU', level: 'Medium', hits: [d(0), x(1), u(1.5), u(2.5), x(3), u(3.5)] },
+  { id: 'boom-chuck', name: 'Boom-chuck', level: 'Easy', hits: [d(0), x(1), d(2), x(3)] },
+  { id: 'folk', name: 'Folk strum', level: 'Medium', hits: [d(0), d(1), u(1.5), u(2.5), d(3), u(3.5)] },
+  { id: 'folk-chuck', name: 'Folk with chucks', level: 'Medium', hits: [d(0), x(1), u(1.5), u(2.5), x(3), u(3.5)] },
   { id: 'skank', name: 'Reggae skank', level: 'Medium', hits: [d(1, { chop: true }), d(3, { chop: true })] },
   { id: 'offbeat', name: 'Offbeat ups', level: 'Medium', hits: [u(0.5), u(1.5), u(2.5), u(3.5)] },
   {
-    id: 'funk', name: 'Funk chops  D·DU·X·DU', level: 'Hard',
+    id: 'funk', name: 'Funk chops', level: 'Hard',
     hits: [d(0, { chop: true }), d(1), u(1.5, { chop: true }), x(2), d(3), u(3.5, { chop: true })],
   },
   { id: 'eighths', name: 'Straight eighths', level: 'Hard', hits: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5].map((b) => (b % 1 ? u(b) : d(b))) },
 ];
 
-export type Progression = { id: string; name: string; chords: string[] };
+/** A song is a loop of bars; each bar holds 1, 2 or 4 chords that share it evenly. */
+export type Progression = { id: string; name: string; bars: string[][] };
+
+const perBar = (...chords: string[]) => chords.map((c) => [c]);
 
 export const PROGRESSIONS: Progression[] = [
-  { id: 'em', name: 'Just Em', chords: ['Em'] },
-  { id: 'pop', name: 'Pop  G–D–Em–C', chords: ['G', 'D', 'Em', 'C'] },
-  { id: 'ballad', name: 'Ballad  C–G–Am–F', chords: ['C', 'G', 'Am', 'F'] },
-  { id: 'folk', name: 'Folk  G–C–D–G', chords: ['G', 'C', 'D', 'G'] },
-  { id: 'minor', name: 'Minor  Am–Dm–E–Am', chords: ['Am', 'Dm', 'E', 'Am'] },
-  { id: 'blues', name: '12-bar blues in E', chords: ['E7', 'E7', 'E7', 'E7', 'A7', 'A7', 'E7', 'E7', 'B7', 'A7', 'E7', 'B7'] },
+  { id: 'em', name: 'Just Em', bars: perBar('Em') },
+  { id: 'pop', name: 'Pop', bars: perBar('G', 'D', 'Em', 'C') },
+  { id: 'ballad', name: 'Ballad', bars: perBar('C', 'G', 'Am', 'F') },
+  { id: 'folk', name: 'Folk', bars: perBar('G', 'C', 'D', 'G') },
+  { id: 'minor', name: 'Minor', bars: perBar('Am', 'Dm', 'E', 'Am') },
+  { id: 'blues', name: '12-bar blues in E', bars: perBar('E7', 'E7', 'E7', 'E7', 'A7', 'A7', 'E7', 'E7', 'B7', 'A7', 'E7', 'B7') },
 ];
 
+export const CUSTOM_ID = 'custom';
 export const BEATS_PER_BAR = 4;
 
-export type SongSettings = { bpm: number; bars: number; patternId: string; progressionId: string; ringOut?: boolean };
+export type SongSettings = {
+  bpm: number;
+  bars: number; // roughly how long; rounded to whole times through the song
+  patternId: string;
+  progressionId: string;
+  customChords?: string;
+  ringOut?: boolean;
+};
 
-export function chordForBar(prog: Progression, bar: number) {
-  return prog.chords[bar % prog.chords.length];
+// ---------- the player's own song ----------
+
+/** "em" → "Em", "bbm" → "Bbm", "Amin" → "Am", "Gmaj" → "G". Returns null if it isn't a chord we can check. */
+export function normalizeChord(token: string): string | null {
+  const m = /^([a-gA-G])([#b♯♭]?)(.*)$/.exec(token.trim());
+  if (!m) return null;
+  const acc = m[2] === '♯' ? '#' : m[2] === '♭' ? 'b' : m[2];
+  let q = m[3];
+  if (/^(maj|M)$/.test(q)) q = '';
+  else if (/^(min|mi|-)$/i.test(q)) q = 'm';
+  const name = m[1].toUpperCase() + acc + q;
+  return parseChord(name) ? name : null;
+}
+
+/**
+ * Reads chords typed by the player.
+ *   "G D Em C"            → one chord per bar
+ *   "| G | D | Em C |"    → bars between the lines; two or four chords can share a bar
+ */
+export function parseSong(text: string): { bars: string[][] } | { error: string } {
+  const hasLines = text.includes('|');
+  const groups = hasLines
+    ? text.split('|').map((seg) => seg.trim().split(/[\s,]+/).filter(Boolean)).filter((g) => g.length)
+    : text.split(/[\s,–—-]+/).filter(Boolean).map((t) => [t]);
+  if (!groups.length) return { error: 'Type your chords, for example: G D Em C' };
+  if (groups.length > 64) return { error: 'That is more than 64 bars. Shorten the loop.' };
+  const bars: string[][] = [];
+  for (const g of groups) {
+    if (![1, 2, 4].includes(g.length)) return { error: `A bar can hold 1, 2 or 4 chords, but "${g.join(' ')}" has ${g.length}.` };
+    const bar: string[] = [];
+    for (const t of g) {
+      const c = normalizeChord(t);
+      if (!c) return { error: `Can't read "${t}". Use major, minor or 7th chords, like G, Am, F#m or B7.` };
+      bar.push(c);
+    }
+    bars.push(bar);
+  }
+  return { bars };
+}
+
+export function getProgression(s: SongSettings): Progression {
+  if (s.progressionId === CUSTOM_ID) {
+    const parsed = parseSong(s.customChords ?? '');
+    if ('bars' in parsed) return { id: CUSTOM_ID, name: 'Your song', bars: parsed.bars };
+  }
+  return PROGRESSIONS.find((p) => p.id === s.progressionId) ?? PROGRESSIONS[1];
+}
+
+// ---------- where we are in the song ----------
+
+export function chordAtBeat(prog: Progression, beat: number): string {
+  const b = Math.max(0, beat);
+  const bar = prog.bars[Math.floor(b / BEATS_PER_BAR) % prog.bars.length];
+  return bar[Math.min(bar.length - 1, Math.floor(((b % BEATS_PER_BAR) / BEATS_PER_BAR) * bar.length))];
+}
+
+/** The next beat (after `beat`, before `untilBeat`) where the chord becomes a different one. */
+export function nextChange(prog: Progression, beat: number, untilBeat: number): { chord: string; beat: number } | null {
+  const current = chordAtBeat(prog, beat);
+  for (let b = Math.floor(Math.max(0, beat)) + 1; b < untilBeat; b++) {
+    const c = chordAtBeat(prog, b);
+    if (c !== current) return { chord: c, beat: b };
+  }
+  return null;
+}
+
+/**
+ * Songs are played a whole number of times through, then (optionally) end with one
+ * extra bar back on the home chord, left to ring.
+ */
+export function songLength(prog: Progression, requestedBars: number, ringOut: boolean) {
+  const len = prog.bars.length;
+  const playBars = Math.max(1, Math.round(requestedBars / len)) * len;
+  return { playBars, totalBars: playBars + (ringOut ? 1 : 0) };
+}
+
+/** Length choices that fit this song (8/16/24/32 bars, rounded to whole loops). */
+export function lengthOptions(prog: Progression): number[] {
+  return [...new Set([8, 16, 24, 32].map((b) => songLength(prog, b, false).playBars))];
+}
+
+/** Everything about the shape of one play-through: how long it is and which chord sounds when. */
+export function songMap(s: SongSettings) {
+  const prog = getProgression(s);
+  const { playBars, totalBars } = songLength(prog, s.bars, s.ringOut !== false);
+  const playBeats = playBars * BEATS_PER_BAR, totalBeats = totalBars * BEATS_PER_BAR;
+  const home = prog.bars[0][0];
+  /** The ending bar sits on the home chord. */
+  const chordAt = (beat: number) => (beat >= playBeats ? home : chordAtBeat(prog, beat));
+  const upcoming = (beat: number): { chord: string; beat: number } | null => {
+    const current = chordAt(beat);
+    for (let b = Math.floor(Math.max(0, beat)) + 1; b < totalBeats; b++) {
+      if (chordAt(b) !== current) return { chord: chordAt(b), beat: b };
+    }
+    return null;
+  };
+  return { prog, playBars, totalBars, playBeats, totalBeats, home, chordAt, upcoming };
 }
 
 export function buildChart(s: SongSettings): Note[] {
   const pattern = PATTERNS.find((p) => p.id === s.patternId) ?? PATTERNS[0];
-  const prog = PROGRESSIONS.find((p) => p.id === s.progressionId) ?? PROGRESSIONS[0];
+  const { prog, playBars, totalBars, chordAt } = songMap(s);
   const spb = 60 / s.bpm;
   const notes: Note[] = [];
   let prev = '';
-  for (let bar = 0; bar < s.bars; bar++) {
-    const chord = chordForBar(prog, bar);
-    // finish the song on one big ringing chord, like the end of a real song
-    const hits = s.ringOut !== false && bar === s.bars - 1 && s.bars > 1 ? [d(0, { len: 3.5 })] : pattern.hits;
-    hits.forEach((h, i) => {
+  for (let bar = 0; bar < totalBars; bar++) {
+    const ending = bar >= playBars;
+    const chords = ending ? [prog.bars[0][0]] : prog.bars[bar % prog.bars.length];
+    let hits: Hit[] = ending ? [d(0, { len: 3.5 })] : pattern.hits.map((h) => ({ ...h }));
+    if (chords.length > 1) {
+      const seg = BEATS_PER_BAR / chords.length;
+      // a long note must not ring across a chord change
+      for (const h of hits) {
+        if (!h.len) continue;
+        const room = (Math.floor(h.b / seg) + 1) * seg - h.b - 0.5;
+        if (room < 0.5) delete h.len; else h.len = Math.min(h.len, room);
+      }
+      // every chord gets strummed at least once
+      for (let i = 0; i < chords.length; i++) {
+        if (!hits.some((h) => h.b >= i * seg && h.b < (i + 1) * seg)) hits.push(d(i * seg, seg >= 2 ? { len: seg - 0.5 } : {}));
+      }
+      hits = hits.sort((a, b) => a.b - b.b);
+    }
+    for (const h of hits) {
       const beat = bar * BEATS_PER_BAR + h.b;
+      const chord = chordAt(beat);
       notes.push({
         id: notes.length, time: beat * spb, beat, stroke: h.s, chord,
-        chordChange: i === 0 && chord !== prev,
+        chordChange: chord !== prev,
         ...(h.len ? { len: h.len, endTime: (beat + h.len) * spb } : {}),
         ...(h.chop ? { chop: true } : {}),
       });
-    });
-    prev = chord;
+      prev = chord;
+    }
   }
   return notes;
 }
 
-// Root frequencies (octave 2) for the optional bass line.
-const ROOTS: Record<string, number> = { C: 65.41, D: 73.42, E: 82.41, F: 87.31, G: 98.0, A: 110.0, B: 61.74 };
+// ---------- sounds and shapes for any chord ----------
+
+/** Bass note for a chord's root, between B1 and A#2 (just under the guitar). */
 export function rootFreq(chord: string): number {
-  return ROOTS[chord[0]] ?? 82.41;
+  const root = parseChord(chord)?.root ?? 4;
+  const midi = 36 + root > 46 ? 24 + root : 36 + root;
+  return 440 * Math.pow(2, (midi - 69) / 12);
 }
 
+/** Frets from the low E string to the high e string. null = don't play that string. */
+export type Shape = (number | null)[];
+
 // Open-position shapes, low E → high e. x = muted.
-export const CHORD_SHAPES: Record<string, string> = {
-  G: '320003', C: 'x32010', D: 'xx0232', Em: '022000', Am: 'x02210', E: '022100',
-  A: 'x02220', F: '133211', Dm: 'xx0231', E7: '020100', A7: 'x02020', B7: 'x21202',
+const OPEN_SHAPES: Record<string, string> = {
+  G: '320003', C: 'x32010', D: 'xx0232', Em: '022000', Am: 'x02210', E: '022100', A: 'x02220',
+  Dm: 'xx0231', E7: '020100', A7: 'x02020', B7: 'x21202', D7: 'xx0212', G7: '320001', C7: 'x32310',
 };
+
+const BARRE = {
+  // offsets from the barre fret; root on the low E string…
+  E: { '': [0, 2, 2, 1, 0, 0], m: [0, 2, 2, 0, 0, 0], '7': [0, 2, 0, 1, 0, 0] } as Record<string, number[]>,
+  // …or on the A string
+  A: { '': [null, 0, 2, 2, 2, 0], m: [null, 0, 2, 2, 1, 0], '7': [null, 0, 2, 0, 2, 0] } as Record<string, (number | null)[]>,
+};
+
+/** A playable shape for any major, minor or 7th chord: the open shape if there is one, else a barre chord. */
+export function shapeFor(chord: string): Shape | null {
+  const p = parseChord(chord);
+  if (!p) return null;
+  const open = OPEN_SHAPES[NOTE_NAMES[p.root] + p.quality];
+  if (open) return open.split('').map((c) => (c === 'x' ? null : Number(c)));
+  const fE = (p.root - 4 + 12) % 12, fA = (p.root - 9 + 12) % 12;
+  return fE <= fA
+    ? BARRE.E[p.quality].map((o) => o + fE)
+    : BARRE.A[p.quality].map((o) => (o === null ? null : o + fA));
+}
