@@ -48,19 +48,25 @@ No guitar nearby? **Space** strums: hold it for long notes, tap it for chops.
 
 ## The song library
 
-35 songs in four levels. Your best grade on each song (played on a real guitar, not the
+66 songs in four levels. Your best grade on each song (played on a real guitar, not the
 Space bar) is shown next to it.
 
-| Level | What makes it that level | Examples |
-|---|---|---|
-| Warm-ups | short chord loops | Just Em, G–C–D, the four-chord loop |
-| Easy | two or three open chords, a whole bar or more per chord | Skip to My Lou, Tom Dooley, When the Saints Go Marching In |
-| Medium | more chords, minor keys, some changes mid-bar | Sloop John B, Bella Ciao, Whiskey in the Jar, Wellerman, 12-bar blues |
-| Hard | barre chords and fast changes | Korobeiniki, St. James Infirmary, La Bamba, Canon in D |
+| Level | What makes it that level | Hits | Traditional |
+|---|---|---|---|
+| Warm-ups | short chord loops | | Just Em, G–C–D, the four-chord loop |
+| Easy | two to four open chords, a whole bar or more per chord | Zombie, Stand By Me, Three Little Birds, Звезда по имени Солнце | Skip to My Lou, Tom Dooley, When the Saints Go Marching In |
+| Medium | more chords, one barre chord, some changes mid-bar | Knockin' on Heaven's Door, Let It Be, Sweet Home Alabama, Группа крови | Sloop John B, Bella Ciao, Wellerman, 12-bar blues |
+| Hard | several barre chords or fast changes | Creep, Hotel California, Boulevard of Broken Dreams | Korobeiniki, St. James Infirmary, Canon in D |
 
-Every built-in song is traditional or long out of copyright, in a common simple guitar
-arrangement. Folk songs have many versions, so the one you know may differ a little.
-Songs in waltz time (3/4) are not included yet, because the game only plays in 4/4.
+About the charts:
+
+- **Hits are chords only**, with no lyrics or melodies. They are simplified to plain major,
+  minor and 7th chords, because those are what the game can check. Most give the verse
+  and chorus as one loop rather than the full arrangement. Where the record is in another
+  key, the song says which capo position matches it.
+- **Traditional songs** are in a common simple guitar arrangement. Folk songs have many
+  versions, so the one you know may differ a little.
+- Songs in waltz time (3/4 or 6/8) are not included yet, because the game only plays in 4/4.
 
 **My songs** is for everything else. Type the chords of any song you like and save it under a name:
 
@@ -87,7 +93,7 @@ To add a song to the built-in library, add one line to `src/game/songs.ts`.
 ## Tests
 
 ```bash
-npm test          # 46 tests, about 30 seconds
+npm test          # 47 tests, about 30 seconds
 npm run lint
 npm run typecheck
 ```

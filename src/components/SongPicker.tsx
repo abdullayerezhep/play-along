@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Best } from '../best';
 import { CUSTOM_ID, MINE, getProgression, parseSong, suggestedBars, type SavedSong } from '../game/chart';
-import { DEFAULT_SONG, LEVELS, SONGS, type Level, type Song } from '../game/songs';
+import { DEFAULT_SONG, LEVELS, SONGS, type Group, type Level, type Song } from '../game/songs';
 import type { AppSettings } from '../settings';
 
 type Props = { settings: AppSettings; best: Best; onChange: (s: AppSettings) => void };
@@ -23,7 +23,9 @@ function Chips({ bars }: { bars: string[][] }) {
 export function SongPicker({ settings, best, onChange }: Props) {
   const selected = settings.progressionId;
   const mine = selected === CUSTOM_ID || selected.startsWith(MINE);
-  const [tab, setTab] = useState<Tab>(mine ? 'mine' : SONGS.find((s) => s.id === selected)?.level ?? 'warmup');
+  const current = SONGS.find((s) => s.id === selected);
+  const [tab, setTab] = useState<Tab>(mine ? 'mine' : current?.level ?? 'warmup');
+  const [group, setGroup] = useState<Group>(current && current.level !== 'warmup' ? current.group ?? 'hit' : 'hit');
   const [name, setName] = useState('');
 
   /** Choosing a song also sets the tempo, strum and length that suit it. */
@@ -64,9 +66,16 @@ export function SongPicker({ settings, best, onChange }: Props) {
         <button role="tab" aria-selected={tab === 'mine'} className={tab === 'mine' ? 'on' : ''} onClick={() => setTab('mine')}>My songs</button>
       </div>
 
+      {tab !== 'mine' && tab !== 'warmup' && (
+        <div className="seg groups" role="tablist" aria-label="Kind of song">
+          <button role="tab" aria-selected={group === 'hit'} className={group === 'hit' ? 'on' : ''} onClick={() => setGroup('hit')}>Hits</button>
+          <button role="tab" aria-selected={group === 'trad'} className={group === 'trad' ? 'on' : ''} onClick={() => setGroup('trad')}>Traditional</button>
+        </div>
+      )}
+
       {tab !== 'mine' ? (
         <>
-          {SONGS.filter((s) => s.level === tab).map((s) => (
+          {SONGS.filter((s) => s.level === tab && (tab === 'warmup' || s.group === group)).map((s) => (
             <label key={s.id} className={`row${selected === s.id ? ' on' : ''}`}>
               <input type="radio" name="song" checked={selected === s.id} onChange={() => pick(s)} />
               <span className="row-name song">{s.name}<small>{s.about}</small></span>
@@ -74,7 +83,10 @@ export function SongPicker({ settings, best, onChange }: Props) {
               <Chips bars={s.bars} />
             </label>
           ))}
-          <p className="note">{LEVELS.find((l) => l.id === tab)!.about} Choosing a song sets a tempo and strum that suit it; change them as you like.</p>
+          <p className="note">
+            {LEVELS.find((l) => l.id === tab)!.about} Choosing a song sets a tempo and strum that suit it; change them as you like.
+            {tab !== 'warmup' && group === 'hit' && ' Hits are simplified to plain major, minor and 7th chords.'}
+          </p>
         </>
       ) : (
         <>

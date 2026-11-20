@@ -1,6 +1,7 @@
 import { parseSong } from './songText';
 
 export type Level = 'warmup' | 'easy' | 'medium' | 'hard';
+export type Group = 'hit' | 'trad';
 
 export const LEVELS: { id: Level; name: string; about: string }[] = [
   { id: 'warmup', name: 'Warm-ups', about: 'Short chord loops for getting your hands moving.' },
@@ -17,7 +18,9 @@ export type Song = {
   /** The chord the song comes to rest on, if that isn't its first chord. */
   home?: string;
   level?: Level;
-  /** Where it comes from. */
+  /** A well-known recording, or a traditional tune. */
+  group?: Group;
+  /** Who made it famous or where it comes from, plus anything needed to match the record. */
   about?: string;
   /** A tempo and strum pattern that suit it. */
   bpm?: number;
@@ -27,17 +30,80 @@ export type Song = {
 function song(level: Level, id: string, name: string, about: string, bpm: number, patternId: string, chart: string, home?: string): Song {
   const parsed = parseSong(chart);
   if ('error' in parsed) throw new Error(`Song "${name}": ${parsed.error}`);
-  return { id, name, level, about, bpm, patternId, bars: parsed.bars, ...(home ? { home } : {}) };
+  return { id, name, level, group: 'trad', about, bpm, patternId, bars: parsed.bars, ...(home ? { home } : {}) };
 }
 
+/** A well-known song: `artist` is who made it famous, plus a capo note where the record is in another key. */
+const hit = (level: Level, id: string, name: string, artist: string, bpm: number, patternId: string, chart: string, home?: string): Song =>
+  ({ ...song(level, id, name, artist, bpm, patternId, chart, home), group: 'hit' });
+
 /**
- * The built-in library, easiest first within each level.
+ * Well-known songs, as chord charts only: no lyrics and no melodies.
  *
- * Every song here is traditional or long out of copyright, written in a common,
- * simple guitar arrangement in 4/4 (folk songs have many versions; yours may differ).
+ * They are simplified to the major, minor and 7th chords the game can check, so a
+ * sus or add9 chord on the record is written as its plain chord here. Most give the
+ * main sections (verse, then chorus) as one loop rather than the full arrangement.
+ */
+const HITS: Song[] = [
+  // ---- easy ----
+  hit('easy', 'zombie', 'Zombie', 'The Cranberries', 84, 'folk', '| Em | C | G | D |'),
+  hit('easy', 'riptide', 'Riptide', 'Vance Joy, capo 1 matches the record', 100, 'folk', '| Am | G | C | C |', 'C'),
+  hit('easy', 'standbyme', 'Stand By Me', 'Ben E. King, capo 2 matches the record', 110, 'boom-chuck',
+    '| G | G | Em | Em | C | D | G | G |'),
+  hit('easy', 'whatsup', "What's Up?", '4 Non Blondes, capo 2 matches the record', 68, 'folk', '| G | Am | C | G |'),
+  hit('easy', 'imyours', "I'm Yours", 'Jason Mraz, capo 4 matches the record', 75, 'folk', '| G | D | Em | C |'),
+  hit('easy', 'wagonwheel', 'Wagon Wheel', 'Old Crow Medicine Show, capo 2 matches the record', 74, 'folk',
+    '| G | D | Em | C | G | D | C | C |'),
+  hit('easy', 'birds', 'Three Little Birds', 'Bob Marley', 76, 'offbeat',
+    '| A | A | D | A | A | A | D | A | A | E | A | D | A | E | D | A |'),
+  hit('easy', 'zvezda', 'Звезда по имени Солнце', 'Кино', 112, 'folk-chuck',
+    '| Am | C | Dm | G | Am | C | Dm | G | Dm | Am |'),
+  hit('easy', 'countryroads', 'Take Me Home, Country Roads', 'John Denver, capo 2 matches the record', 82, 'boom-chuck',
+    '| G | G | Em | Em | D | D | C | G | G | G | D | D | Em | Em | C | C | G | G | D | D | C | C | G | G |'),
+  hit('easy', 'vivalavida', 'Viva la Vida', 'Coldplay, capo 1 matches the record', 138, 'quarters', '| C | D | G | Em |', 'G'),
+
+  // ---- medium ----
+  hit('medium', 'knockin', "Knockin' on Heaven's Door", 'Bob Dylan', 70, 'folk', '| G D | Am | G D | C |'),
+  hit('medium', 'sweethome', 'Sweet Home Alabama', 'Lynyrd Skynyrd', 98, 'folk', '| D C | G |'),
+  hit('medium', 'letitbe', 'Let It Be', 'The Beatles', 72, 'quarters',
+    '| C G | Am F | C G | F C | C G | Am F | C G | F C | Am G | F C | C G | F C |'),
+  hit('medium', 'nowoman', 'No Woman, No Cry', 'Bob Marley', 78, 'offbeat', '| C G | Am F | C F | C G |'),
+  hit('medium', 'wildthing', 'Wild Thing', 'The Troggs', 105, 'quarters', '| A D | E D |'),
+  hit('medium', 'rain', 'Have You Ever Seen the Rain', 'Creedence Clearwater Revival', 116, 'folk',
+    '| C | C | C | C | G | G | C | C | F | G | C | Am | F | G | C | C |'),
+  hit('medium', 'badmoon', 'Bad Moon Rising', 'Creedence Clearwater Revival', 160, 'quarters',
+    '| D | A G | D | D | D | A G | D | D | G | G | D | D | A | G | D | D |'),
+  hit('medium', 'browneyed', 'Brown Eyed Girl', 'Van Morrison', 148, 'quarters',
+    '| G | C | G | D | G | C | G | D | G | C | G | D | G | C | G | D | C | D | G | Em | C | D | G | D |'),
+  hit('medium', 'wish', 'Wish You Were Here', 'Pink Floyd (the verse)', 60, 'folk', '| C | D | Am | G | D | C | Am | G |', 'G'),
+  hit('medium', 'savetonight', 'Save Tonight', 'Eagle-Eye Cherry', 120, 'folk', '| Am F | C G |'),
+  hit('medium', 'sweetchild', "Sweet Child o' Mine", "Guns N' Roses", 125, 'folk',
+    '| D | D | C | C | G | G | D | D | D | D | C | C | G | G | D | D | A | C | D | D | A | C | D | D |'),
+  hit('medium', 'someone', 'Someone You Loved', 'Lewis Capaldi, capo 1 matches the record', 110, 'half', '| C | G | Am | F |'),
+  hit('medium', 'withorwithout', 'With or Without You', 'U2', 110, 'eighths', '| D | A | Bm | G |'),
+  hit('medium', 'despacito', 'Despacito', 'Luis Fonsi', 89, 'folk', '| Bm | G | D | A |'),
+  hit('medium', 'poplanu', 'Всё идёт по плану', 'Гражданская оборона', 132, 'eighths', '| Am | F | C | E |'),
+  hit('medium', 'gruppakrovi', 'Группа крови', 'Кино, in Am (the record is in F#m)', 125, 'folk-chuck',
+    '| Am | Am | Em | Em | Am | Am | G | G | Am | Am | Em | Em | Dm | Dm | G | G |'),
+
+  // ---- hard ----
+  hit('hard', 'shape', 'Shape of You', 'Ed Sheeran, capo 4 matches the record', 96, 'offbeat', '| Am Dm | F G |'),
+  hit('hard', 'heyjoe', 'Hey Joe', 'Jimi Hendrix', 82, 'folk', '| C G | D A | E | E |', 'E'),
+  hit('hard', 'boulevard', 'Boulevard of Broken Dreams', 'Green Day, capo 1 matches the record', 83, 'folk',
+    '| Em G | D A | Em G | D A | Em G | D A | Em G | D A | C G | D Em | C G | D Em | C G | D Em | C G | B7 |'),
+  hit('hard', 'creep', 'Creep', 'Radiohead', 92, 'folk', '| G | G | B | B | C | C | Cm | Cm |'),
+  hit('hard', 'hotel', 'Hotel California', 'Eagles', 74, 'folk',
+    '| Bm | F# | A | E | G | D | Em | F# | G | D | F# | Bm | G | D | Em | F# |'),
+];
+
+/**
+ * Traditional songs and loops, easiest first within each level.
+ *
+ * Each is traditional or long out of copyright, written in a common, simple guitar
+ * arrangement in 4/4 (folk songs have many versions; yours may differ).
  * Charts use bar lines: "| G | G D7 |" is one bar of G, then a bar shared by G and D7.
  */
-export const SONGS: Song[] = [
+const TRADITIONAL: Song[] = [
   // ---- warm-ups: chord loops ----
   song('warmup', 'em', 'Just Em', 'One chord, to learn the game', 70, 'ring', '| Em |'),
   song('warmup', 'two', 'Em to G', 'Two chords, two bars each', 70, 'half', '| Em | Em | G | G |'),
@@ -111,5 +177,7 @@ export const SONGS: Song[] = [
   song('hard', 'canon', 'Canon in D', 'Pachelbel, around 1680', 80, 'folk',
     '| D | A | Bm | F#m | G | D | G | A |'),
 ];
+
+export const SONGS: Song[] = [...HITS, ...TRADITIONAL];
 
 export const DEFAULT_SONG = 'pop';
