@@ -28,13 +28,13 @@ const u = (b: number, extra: Partial<Hit> = {}): Hit => ({ b, s: 'up', ...extra 
 const x = (b: number): Hit => ({ b, s: 'mute' });
 
 export const PATTERNS: Pattern[] = [
-  { id: 'ring', name: 'Let it ring (one per bar)', level: 'Warm-up', hits: [d(0, { len: 3.5 })] },
+  { id: 'ring', name: 'Let it ring', level: 'Warm-up', hits: [d(0, { len: 3.5 })] },
   { id: 'half', name: 'Half notes, let ring', level: 'Easy', hits: [d(0, { len: 1.5 }), d(2, { len: 1.5 })] },
   { id: 'quarters', name: 'Quarter downs', level: 'Easy', hits: [d(0), d(1), d(2), d(3)] },
   { id: 'boom-chuck', name: 'Boom-chuck  D·X·D·X', level: 'Easy', hits: [d(0), x(1), d(2), x(3)] },
   { id: 'folk', name: 'Folk strum  D·DU·UDU', level: 'Medium', hits: [d(0), d(1), u(1.5), u(2.5), d(3), u(3.5)] },
   { id: 'folk-chuck', name: 'Folk with chucks  D·XU·UXU', level: 'Medium', hits: [d(0), x(1), u(1.5), u(2.5), x(3), u(3.5)] },
-  { id: 'skank', name: 'Reggae skank (chops on 2 & 4)', level: 'Medium', hits: [d(1, { chop: true }), d(3, { chop: true })] },
+  { id: 'skank', name: 'Reggae skank', level: 'Medium', hits: [d(1, { chop: true }), d(3, { chop: true })] },
   { id: 'offbeat', name: 'Offbeat ups', level: 'Medium', hits: [u(0.5), u(1.5), u(2.5), u(3.5)] },
   {
     id: 'funk', name: 'Funk chops  D·DU·X·DU', level: 'Hard',

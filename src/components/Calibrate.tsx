@@ -64,23 +64,23 @@ export function Calibrate({ engine, onDone }: Props) {
 
   const counting = phase === 'running' && beat < COUNT_IN;
   return (
-    <div className="setup">
-      <section className="panel center">
-        <h2>Latency calibration</h2>
-        <p className="muted small">You'll hear 4 count-in clicks, then {CLICKS} more. Strum once on each of the {CLICKS} clicks — short, crisp strums, mute the strings between.</p>
+    <div className="menu calibrate">
+      <section>
+        <h2>Measure the delay</h2>
+        <p className="lede">Your mic and speakers add a small delay. After 4 count-in clicks, strum once on each of the next {CLICKS}. Keep strums short and mute between them.</p>
         <div className={`calib-dot ${phase === 'running' && beat >= 0 ? 'pulse' : ''}`} key={beat}>
-          {phase === 'running' ? (counting ? (beat >= 0 ? `${COUNT_IN - beat}` : '') : 'STRUM') : '♪'}
+          {phase === 'running' ? (counting ? (beat >= 0 ? `${COUNT_IN - beat}` : '') : 'Strum') : '♪'}
         </div>
-        {phase === 'running' && <p className="muted small">{hits} strums heard</p>}
+        {phase === 'running' && <p className="dim">{hits} strums heard</p>}
         {phase === 'done' && (
           result === null
-            ? <p className="error">Not enough strums lined up with the clicks. Try again, maybe with a higher sensitivity.</p>
-            : <p>Measured offset: <strong>{result} ms</strong></p>
+            ? <p className="error">Fewer than 6 strums lined up with the clicks. Raise the sensitivity a little and try again.</p>
+            : <p className="lede">Measured delay: <strong>{result} ms</strong></p>
         )}
-        <div className="row">
-          {phase !== 'running' && <button className="btn" onClick={start}>{phase === 'done' ? 'Again' : 'Start'}</button>}
+        <div className="actions">
+          {phase !== 'running' && <button className="btn" onClick={start}>{phase === 'done' ? 'Measure again' : 'Start'}</button>}
           {phase === 'done' && result !== null && <button className="btn" onClick={() => onDone(result)}>Use {result} ms</button>}
-          {phase !== 'running' && <button className="btn ghost" onClick={() => onDone(null)}>Back</button>}
+          {phase !== 'running' && <button className="btn quiet" onClick={() => onDone(null)}>Back</button>}
         </div>
       </section>
     </div>

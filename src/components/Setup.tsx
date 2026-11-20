@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { AudioEngine } from '../audio/engine';
-import { PATTERNS, PROGRESSIONS } from '../game/chart';
+import { PATTERNS, PROGRESSIONS, type Pattern } from '../game/chart';
 import type { AppSettings } from '../settings';
 import { LevelMeter } from './LevelMeter';
 
@@ -11,6 +11,23 @@ type Props = {
   onStart: () => void;
   onCalibrate: () => void;
 };
+
+/** One bar of a strum pattern as eight eighth-note slots. */
+function PatternStrip({ pattern }: { pattern: Pattern }) {
+  const cells: JSX.Element[] = [];
+  for (let i = 0; i < 8; i++) {
+    const h = pattern.hits.find((x) => Math.abs(x.b - i / 2) < 0.01);
+    if (!h) { cells.push(<span key={i} className="slot" />); continue; }
+    const span = h.len ? Math.round(h.len * 2) : 1;
+    cells.push(
+      <span key={i} className={`slot hit ${h.s}${h.chop ? ' chop' : ''}${h.len ? ' long' : ''}`} style={{ gridColumn: `span ${span}` }}>
+        {h.s === 'mute' ? '×' : h.s === 'down' ? '▾' : '▴'}
+      </span>,
+    );
+    i += span - 1;
+  }
+  return <span className="strip" aria-hidden>{cells}</span>;
+}
 
 export function Setup({ engine, settings, onChange, onStart, onCalibrate }: Props) {
   const [micReady, setMicReady] = useState(engine.micReady);
@@ -24,85 +41,95 @@ export function Setup({ engine, settings, onChange, onStart, onCalibrate }: Prop
       setMicReady(true);
       setMicError('');
     } catch (e) {
-      setMicError(e instanceof Error ? e.message : 'Microphone access was refused.');
+      setMicError(`Microphone blocked${e instanceof Error ? ` (${e.message})` : ''}. Allow it in your browser's site settings, then try again.`);
     }
   };
 
   return (
-    <div className="setup">
-      <header className="title">
-        <h1>PLAY<span>ALONG</span></h1>
-        <p className="muted">Strum your real guitar on the beat. Hit the notes, build the combo.</p>
+    <div className="menu">
+      <header className="masthead">
+        <h1>Play Along</h1>
+        <p>Strum your guitar in time with the notes. The mic listens for the beat and the chord.</p>
       </header>
 
-      <section className="panel">
-        <h2>1 · Plug in your ears</h2>
+      <section className="input-strip" aria-label="Microphone">
         {!micReady ? (
-          <>
-            <p className="muted small">Put your phone or laptop near the guitar (or use an audio interface). Headphones help so the click doesn't trigger the mic.</p>
-            <button className="btn" onClick={enableMic}>Enable microphone</button>
-            {micError && <p className="error small">{micError}</p>}
-          </>
+          <div className="mic-off">
+            <button className="btn" onClick={enableMic}>Turn on microphone</button>
+            <p>Set your phone or laptop near the guitar. Headphones keep the click out of the mic.</p>
+            {micError && <p className="error">{micError}</p>}
+          </div>
         ) : (
-          <>
+          <div className="mic-on">
             <LevelMeter engine={engine} />
-            <label className="field">
-              <span>Sensitivity <em>{Math.round(settings.sensitivity * 100)}</em></span>
-              <input type="range" min={0} max={1} step={0.01} value={settings.sensitivity}
-                onChange={(e) => { const v = Number(e.target.value); set('sensitivity', v); engine.setSensitivity(v); }} />
-            </label>
-            <p className="muted small">Strum a few times: each strum should light up STRUM once and show the chord it heard. Lower it if it fires on ringing strings, raise it if it misses soft strums.</p>
-            <div className="latency">
-              <span>Latency offset: <strong>{settings.latencyMs} ms</strong></span>
-              <button className="btn ghost" onClick={onCalibrate}>Calibrate</button>
+            <div className="mic-controls">
+              <label className="sens">
+                <span>Sensitivity</span>
+                <input type="range" min={0} max={1} step={0.01} value={settings.sensitivity}
+                  onChange={(e) => { const v = Number(e.target.value); set('sensitivity', v); engine.setSensitivity(v); }} />
+              </label>
+              <div className="latency">
+                <span>Delay {settings.latencyMs} ms</span>
+                <button className="btn quiet small" onClick={onCalibrate}>Calibrate</button>
+              </div>
             </div>
-          </>
+            <p className="hint">Strum once: the light should blink once and show your chord. If ringing strings make it blink again, lower the sensitivity.</p>
+          </div>
         )}
       </section>
 
-      <section className="panel">
-        <h2>2 · Pick a song</h2>
-        <label className="field">
-          <span>Chords</span>
-          <select value={settings.progressionId} onChange={(e) => set('progressionId', e.target.value)}>
-            {PROGRESSIONS.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
+      <div className="pickers">
+        <fieldset className="picker">
+          <legend>Song</legend>
+          {PROGRESSIONS.map((p) => (
+            <label key={p.id} className={`row${settings.progressionId === p.id ? ' on' : ''}`}>
+              <input type="radio" name="prog" checked={settings.progressionId === p.id} onChange={() => set('progressionId', p.id)} />
+              <span className="row-name">{p.name.split('  ')[0]}</span>
+              <span className="chips">
+                {(p.chords.length > 4 ? [...new Set(p.chords)] : p.chords).map((c, i) => <span key={i} className="chip">{c}</span>)}
+              </span>
+            </label>
+          ))}
+        </fieldset>
+
+        <fieldset className="picker">
+          <legend>Strum pattern</legend>
+          {PATTERNS.map((p) => (
+            <label key={p.id} className={`row${settings.patternId === p.id ? ' on' : ''}`}>
+              <input type="radio" name="pattern" checked={settings.patternId === p.id} onChange={() => set('patternId', p.id)} />
+              <span className="row-name">{p.name.split('  ')[0]}<small>{p.level}</small></span>
+              <PatternStrip pattern={p} />
+            </label>
+          ))}
+          <p className="key">
+            <span><span className="k down">▾</span> down</span>
+            <span><span className="k up">▴</span> up</span>
+            <span><span className="k mute">×</span> muted chuck</span>
+            <span><span className="k down long">▾</span> let it ring</span>
+            <span><span className="k down chop">▾</span> chop: mute right after</span>
+          </p>
+        </fieldset>
+      </div>
+
+      <section className="transport">
+        <label className="tempo">
+          <span className="bpm">{settings.bpm}<small>bpm</small></span>
+          <input type="range" min={50} max={160} step={1} value={settings.bpm} onChange={(e) => set('bpm', Number(e.target.value))} aria-label="Tempo" />
         </label>
-        <label className="field">
-          <span>Strum pattern</span>
-          <select value={settings.patternId} onChange={(e) => set('patternId', e.target.value)}>
-            {PATTERNS.map((p) => <option key={p.id} value={p.id}>{p.level}: {p.name}</option>)}
-          </select>
-        </label>
-        <label className="field">
-          <span>Tempo <em>{settings.bpm} BPM</em></span>
-          <input type="range" min={50} max={160} step={1} value={settings.bpm} onChange={(e) => set('bpm', Number(e.target.value))} />
-        </label>
-        <label className="field">
-          <span>Length</span>
-          <select value={settings.bars} onChange={(e) => set('bars', Number(e.target.value))}>
-            {[8, 16, 24, 32].map((b) => <option key={b} value={b}>{b} bars</option>)}
-          </select>
-        </label>
-        <div className="toggles">
-          <label><input type="checkbox" checked={settings.metronome} onChange={(e) => set('metronome', e.target.checked)} /> Metronome</label>
-          <label><input type="checkbox" checked={settings.bassLine} onChange={(e) => set('bassLine', e.target.checked)} /> Bass line</label>
-          <label><input type="checkbox" checked={settings.checkChords} onChange={(e) => set('checkChords', e.target.checked)} /> Check chords</label>
-          <label><input type="checkbox" checked={settings.ringOut} onChange={(e) => set('ringOut', e.target.checked)} /> Ring out ending</label>
+        <div className="seg" role="radiogroup" aria-label="Song length">
+          {[8, 16, 24, 32].map((b) => (
+            <button key={b} role="radio" aria-checked={settings.bars === b} className={settings.bars === b ? 'on' : ''} onClick={() => set('bars', b)}>{b} bars</button>
+          ))}
         </div>
+        <div className="toggles">
+          <label><input type="checkbox" checked={settings.metronome} onChange={(e) => set('metronome', e.target.checked)} /> Click</label>
+          <label><input type="checkbox" checked={settings.bassLine} onChange={(e) => set('bassLine', e.target.checked)} /> Bass</label>
+          <label><input type="checkbox" checked={settings.checkChords} onChange={(e) => set('checkChords', e.target.checked)} /> Check chords</label>
+          <label><input type="checkbox" checked={settings.ringOut} onChange={(e) => set('ringOut', e.target.checked)} /> End on a held chord</label>
+        </div>
+        <button className="btn go" onClick={onStart}>Start playing</button>
       </section>
-
-      <section className="panel legend">
-        <h2>How to read the notes</h2>
-        <div className="legend-row"><span className="gem down">▼</span> <span>Downstrum</span></div>
-        <div className="legend-row"><span className="gem up">▲</span> <span>Upstrum</span></div>
-        <div className="legend-row"><span className="gem down tail">▼</span> <span>Long note: strum and <b>let it ring</b> to the end of the tail. Don't mute or strum again.</span></div>
-        <div className="legend-row"><span className="gem mute">✕</span> <span>Chuck: strum with the strings muted for a dead "chk"</span></div>
-        <div className="legend-row"><span className="gem down chop">▼•</span> <span>Chop: strum, then <b>mute right away</b></span></div>
-      </section>
-
-      <button className="btn big" onClick={onStart}>▶ START</button>
-      <p className="muted small center">No guitar handy? Press <kbd>Space</kbd> to strum (hold it for long notes, tap quickly for chops). <kbd>Esc</kbd> quits a song.</p>
+      <p className="footnote">No guitar nearby? Space strums: hold it for long notes, tap it for chops. Esc stops a song.</p>
     </div>
   );
 }

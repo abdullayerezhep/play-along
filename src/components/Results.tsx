@@ -8,38 +8,31 @@ export function Results({ stats, onRetry, onMenu }: Props) {
   const lean = Math.round(median(stats.offsets) * 1000);
   const tip =
     stats.offsets.length < 4 ? 'Not enough hits to read your timing yet.'
-    : Math.abs(lean) < 15 ? 'Your timing is centred on the beat. Nice.'
-    : lean > 0 ? `You tend to strum ${lean} ms late. Try anticipating the beat a little.`
+    : Math.abs(lean) < 15 ? 'Your timing sits right on the beat.'
+    : lean > 0 ? `You tend to strum ${lean} ms late. Try moving a touch earlier.`
     : `You tend to strum ${-lean} ms early. Relax and let the beat come to you.`;
 
   return (
-    <div className="setup">
-      <section className="panel center results">
-        <div className={`grade grade-${g}`}>{g}</div>
-        <div className="big-score">{stats.score.toLocaleString()}</div>
-        <p className="muted">{Math.round(acc * 100)}% accuracy · max combo {stats.maxCombo}</p>
-        <div className="tally">
-          <div><span className="perfect">PERFECT</span><strong>{stats.perfect}</strong></div>
-          <div><span className="good">GOOD</span><strong>{stats.good}</strong></div>
-          <div><span className="miss">WRONG CHORD</span><strong>{stats.wrong}</strong></div>
-          <div><span className="miss">MISS</span><strong>{stats.miss}</strong></div>
-        </div>
-        {(stats.holds > 0 || stats.chops > 0) && (
-          <p className="small muted">
-            {stats.holds > 0 && <>Long notes rung out: <strong>{stats.holdsDone}/{stats.holds}</strong></>}
-            {stats.holds > 0 && stats.chops > 0 && ' · '}
-            {stats.chops > 0 && <>Clean chops: <strong>{stats.chopsOk}/{stats.chops}</strong></>}
-          </p>
-        )}
-        <p className="small">{tip}</p>
-        {stats.wrong > stats.miss && stats.wrong >= 3 && (
-          <p className="small muted">Most points were lost to wrong chords. Try a slower tempo and watch the NEXT chord so your hand moves early.</p>
-        )}
-        <div className="row">
-          <button className="btn" onClick={onRetry}>↻ Retry</button>
-          <button className="btn ghost" onClick={onMenu}>Menu</button>
-        </div>
-      </section>
+    <div className="menu results">
+      <div className={`grade grade-${g}`} aria-label={`Grade ${g}`}>{g}</div>
+      <div className="final-score">{stats.score.toLocaleString()}</div>
+      <p className="lede">{Math.round(acc * 100)}% accurate, longest streak {stats.maxCombo}</p>
+      <dl className="tally">
+        <div><dt>Perfect</dt><dd className="perfect">{stats.perfect}</dd></div>
+        <div><dt>Good</dt><dd>{stats.good}</dd></div>
+        <div><dt>Wrong chord</dt><dd className="bad">{stats.wrong}</dd></div>
+        <div><dt>Missed</dt><dd className="bad">{stats.miss}</dd></div>
+        {stats.holds > 0 && <div><dt>Rang out</dt><dd>{stats.holdsDone}/{stats.holds}</dd></div>}
+        {stats.chops > 0 && <div><dt>Clean chops</dt><dd>{stats.chopsOk}/{stats.chops}</dd></div>}
+      </dl>
+      <p className="advice">{tip}</p>
+      {stats.wrong > stats.miss && stats.wrong >= 3 && (
+        <p className="advice dim">Most points went to wrong chords. Slow the tempo down and glance at the next chord so your hand moves early.</p>
+      )}
+      <div className="actions">
+        <button className="btn go" onClick={onRetry}>Play again</button>
+        <button className="btn quiet" onClick={onMenu}>Change song</button>
+      </div>
     </div>
   );
 }
