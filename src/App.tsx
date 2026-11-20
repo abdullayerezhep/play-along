@@ -1,35 +1,56 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useEffect, useState } from 'react';
+import { AudioEngine } from './audio/engine';
+import { Calibrate } from './components/Calibrate';
+import { Game } from './components/Game';
+import { Results } from './components/Results';
+import { Setup } from './components/Setup';
+import type { Stats } from './game/judge';
+import { loadSettings, saveSettings, type AppSettings } from './settings';
 
-function App() {
-  const [count, setCount] = useState(0)
+type Screen = { name: 'setup' } | { name: 'calibrate' } | { name: 'play'; run: number } | { name: 'results'; stats: Stats };
+
+export default function App() {
+  const [engine] = useState(() => new AudioEngine());
+  const [settings, setSettings] = useState<AppSettings>(loadSettings);
+  const [screen, setScreen] = useState<Screen>({ name: 'setup' });
+
+  useEffect(() => saveSettings(settings), [settings]);
+
+  // Space strums on the menu too, handy for testing without a guitar.
+  useEffect(() => {
+    if (screen.name === 'play') return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && !(e.target instanceof HTMLButtonElement)) { e.preventDefault(); engine.tap(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [engine, screen.name]);
+
+  const play = async () => {
+    await engine.ctx.resume();
+    setScreen({ name: 'play', run: Date.now() });
+  };
 
   return (
-    <>
-      <div>
-        <a href="https://vitejs.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <main className="app">
+      {screen.name === 'setup' && (
+        <Setup engine={engine} settings={settings} onChange={setSettings} onStart={play}
+          onCalibrate={() => setScreen({ name: 'calibrate' })} />
+      )}
+      {screen.name === 'calibrate' && (
+        <Calibrate engine={engine} onDone={(ms) => {
+          if (ms !== null) setSettings((s) => ({ ...s, latencyMs: ms }));
+          setScreen({ name: 'setup' });
+        }} />
+      )}
+      {screen.name === 'play' && (
+        <Game key={screen.run} engine={engine} settings={settings}
+          onFinish={(stats) => setScreen({ name: 'results', stats })}
+          onQuit={() => setScreen({ name: 'setup' })} />
+      )}
+      {screen.name === 'results' && (
+        <Results stats={screen.stats} onRetry={play} onMenu={() => setScreen({ name: 'setup' })} />
+      )}
+    </main>
+  );
 }
-
-export default App

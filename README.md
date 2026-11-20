@@ -1,50 +1,49 @@
-# React + TypeScript + Vite
+# 🎸 Play Along
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A rhythm game for a **real guitar**. Notes scroll down the highway like in the old
+button-mashing rhythm games, but instead of pressing buttons you strum your guitar on
+the beat. The mic hears each strum and scores it **PERFECT / GOOD / MISS**.
 
-Currently, two official plugins are available:
+## Run it
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
-
-- Configure the top-level `parserOptions` property like this:
-
-```js
-export default tseslint.config({
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+```bash
+npm install
+npm run dev
 ```
 
-- Replace `tseslint.configs.recommended` to `tseslint.configs.recommendedTypeChecked` or `tseslint.configs.strictTypeChecked`
-- Optionally add `...tseslint.configs.stylisticTypeChecked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and update the config:
+Open the page, click **Enable microphone**, and strum. The STRUM lamp should light once per strum.
 
-```js
-// eslint.config.js
-import react from 'eslint-plugin-react'
+> Mic access needs `localhost` or HTTPS. To play from a phone on your Wi-Fi, run
+> `npm run dev -- --host` and use an HTTPS tunnel, or deploy the `dist/` build to any static host.
 
-export default tseslint.config({
-  // Set the react version
-  settings: { react: { version: '18.3' } },
-  plugins: {
-    // Add the react plugin
-    react,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended rules
-    ...react.configs.recommended.rules,
-    ...react.configs['jsx-runtime'].rules,
-  },
-})
-```
+## How to play
+
+1. **Sensitivity**: adjust until every strum lights the lamp exactly once.
+2. **Calibrate** (recommended): strum along to 12 clicks. This measures your
+   mic/speaker delay so "on the beat" really means on the beat.
+3. Pick **chords**, a **strum pattern**, **tempo** and **length**, then hit **START**.
+4. Orange ▼ gems are downstrokes and cyan ▲ gems are upstrokes. The chord name appears at
+   each chord change, and the current chord shape is shown top-right.
+5. At the end you get a grade plus a hint on whether you rush or drag the beat.
+
+No guitar nearby? Press **Space** to strum. **Esc** quits.
+
+Headphones help: they stop the metronome click from leaking into the mic.
+
+## How it works
+
+| Piece | File |
+|---|---|
+| Strum detector: AudioWorklet that watches the mic and fires when energy jumps above its recent peak (raw + transient bands, so soft strums over ringing chords still count) | `src/audio/onsetWorklet.ts` |
+| Audio engine: mic, metronome click and bass line, all on the AudioContext clock | `src/audio/engine.ts` |
+| Song charts: strum patterns, chord progressions, chord shapes | `src/game/chart.ts` |
+| Timing windows and scoring (±60 ms perfect, ±130 ms good, combo multiplier up to ×4) | `src/game/judge.ts` |
+| Canvas highway, HUD, setup, calibration, results | `src/components/` |
+
+Adding a progression or strum pattern is one line in `src/game/chart.ts`.
+
+## Ideas for next steps
+
+- Chord recognition (check you're playing the *right* chord, not just on time)
+- Load a song's chord chart / tempo from a file
+- Practice mode that speeds up after each clean run
