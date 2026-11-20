@@ -14,6 +14,13 @@ describe('song library', () => {
     expect(SONGS.some((s) => s.id === DEFAULT_SONG)).toBe(true);
   });
 
+  test('each level above the warm-ups has both hits and traditional songs', () => {
+    for (const level of ['easy', 'medium', 'hard']) for (const group of ['hit', 'trad']) {
+      expect(SONGS.filter((s) => s.level === level && s.group === group).length, `${level} ${group}`).toBeGreaterThanOrEqual(5);
+    }
+    for (const s of SONGS.filter((x) => x.group === 'hit')) expect(s.about, s.name).toBeTruthy(); // names the artist
+  });
+
   test('every song can be played: known strum, sensible tempo, a shape for every chord', () => {
     for (const s of SONGS) {
       expect(PATTERNS.some((p) => p.id === s.patternId), s.name).toBe(true);
