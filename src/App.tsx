@@ -1,7 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { AudioEngine } from './audio/engine';
 import { Calibrate } from './components/Calibrate';
+import { ChordCard } from './components/ChordCard';
+import { ChordHelpContext, type ShowChordHelp } from './components/chordHelp';
 import { Game } from './components/Game';
+import { Library } from './components/Library';
 import { Results } from './components/Results';
 import { Setup } from './components/Setup';
 import { Tuner } from './components/Tuner';
@@ -14,8 +17,9 @@ type Screen =
   | { name: 'setup' }
   | { name: 'calibrate'; then: 'setup' | 'play' }
   | { name: 'tuner' }
+  | { name: 'guide' }
   | { name: 'play'; run: number }
-  | { name: 'results'; stats: Stats; newBest: boolean };
+  | { name: 'results'; stats: Stats; newBest: boolean; learn: boolean };
 
 export default function App() {
   const [engine] = useState(() => new AudioEngine());
@@ -23,6 +27,10 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>({ name: 'setup' });
   const [skippedCalibration, setSkippedCalibration] = useState(false);
   const [best, setBest] = useState<Best>(loadBest);
+  /** The chord being explained in the "how to play it" card, if any. */
+  const [help, setHelp] = useState<{ chord: string; onClose?: () => void } | null>(null);
+  const showHelp = useCallback<ShowChordHelp>((chord, onClose) => setHelp({ chord, onClose }), []);
+  const closeHelp = () => { help?.onClose?.(); setHelp(null); };
 
   useEffect(() => saveSettings(settings), [settings]);
 
@@ -49,16 +57,17 @@ export default function App() {
 
   /** The first song with a mic goes through the delay measurement once. */
   const start = () => {
-    if (engine.micReady && !isCalibrated(settings) && !skippedCalibration) setScreen({ name: 'calibrate', then: 'play' });
+    // timing is only judged in play mode, so only that needs the delay measured
+    if (settings.mode === 'play' && engine.micReady && !isCalibrated(settings) && !skippedCalibration) setScreen({ name: 'calibrate', then: 'play' });
     else void play();
   };
 
   /** A song played on a real guitar can set a new best grade for that song. */
   const finish = (stats: Stats) => {
-    const counts = engine.micReady && stats.keyStrums === 0 && settings.progressionId !== CUSTOM_ID;
+    const counts = settings.mode === 'play' && engine.micReady && stats.keyStrums === 0 && settings.progressionId !== CUSTOM_ID;
     const r = counts ? recordBest(best, settings.progressionId, grade(accuracy(stats)), accuracy(stats)) : { best, improved: false };
     setBest(r.best);
-    setScreen({ name: 'results', stats, newBest: r.improved });
+    setScreen({ name: 'results', stats, newBest: r.improved, learn: settings.mode === 'learn' });
   };
 
   const calibrated = (then: 'setup' | 'play') => (ms: number | null) => {
@@ -72,16 +81,19 @@ export default function App() {
   };
 
   return (
+    <ChordHelpContext.Provider value={showHelp}>
     <main className="app">
       {screen.name === 'setup' && (
         <Setup engine={engine} settings={settings} best={best} onChange={change} onStart={start}
           onCalibrate={() => setScreen({ name: 'calibrate', then: 'setup' })}
-          onTune={() => setScreen({ name: 'tuner' })} />
+          onTune={() => setScreen({ name: 'tuner' })}
+          onGuide={() => setScreen({ name: 'guide' })} />
       )}
       {screen.name === 'calibrate' && (
         <Calibrate engine={engine} firstRun={screen.then === 'play'} onDone={calibrated(screen.then)} />
       )}
       {screen.name === 'tuner' && <Tuner engine={engine} onDone={() => setScreen({ name: 'setup' })} />}
+      {screen.name === 'guide' && <Library onDone={() => setScreen({ name: 'setup' })} />}
       {screen.name === 'play' && (
         <Game key={screen.run} engine={engine} settings={settings}
           onFinish={finish}
@@ -89,9 +101,12 @@ export default function App() {
           onQuit={() => setScreen({ name: 'setup' })} />
       )}
       {screen.name === 'results' && (
-        <Results stats={screen.stats} newBest={screen.newBest} calibrated={isCalibrated(settings)} usedMic={engine.micReady}
-          onRetry={play} onMenu={() => setScreen({ name: 'setup' })} />
+        <Results stats={screen.stats} learn={screen.learn} newBest={screen.newBest} calibrated={isCalibrated(settings)} usedMic={engine.micReady}
+          onRetry={play} onMenu={() => setScreen({ name: 'setup' })}
+          onPlayMode={() => { setSettings((s) => ({ ...s, mode: 'play' })); setScreen({ name: 'setup' }); }} />
       )}
+      {help && <ChordCard key={help.chord} chord={help.chord} engine={engine} onClose={closeHelp} />}
     </main>
+    </ChordHelpContext.Provider>
   );
 }

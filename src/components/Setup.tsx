@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import type { AudioEngine } from '../audio/engine';
 import type { Best } from '../best';
-import { CUSTOM_ID, PATTERNS, getProgression, lengthOptions, parseSong, songLength, type Pattern } from '../game/chart';
+import { CUSTOM_ID, PATTERNS, getProgression, lengthOptions, parseSong, songLength } from '../game/chart';
 import { isCalibrated, type AppSettings } from '../settings';
 import { LevelMeter } from './LevelMeter';
 import { SongPicker } from './SongPicker';
+import { slotsFromHits } from '../game/slots';
+import { StrumStrip } from './StrumStrip';
 
 type Props = {
   engine: AudioEngine;
@@ -14,26 +16,10 @@ type Props = {
   onStart: () => void;
   onCalibrate: () => void;
   onTune: () => void;
+  onGuide: () => void;
 };
 
-/** One bar of a strum pattern as eight eighth-note slots. */
-function PatternStrip({ pattern }: { pattern: Pattern }) {
-  const cells: JSX.Element[] = [];
-  for (let i = 0; i < 8; i++) {
-    const h = pattern.hits.find((x) => Math.abs(x.b - i / 2) < 0.01);
-    if (!h) { cells.push(<span key={i} className="slot" />); continue; }
-    const span = h.len ? Math.round(h.len * 2) : 1;
-    cells.push(
-      <span key={i} className={`slot hit ${h.s}${h.chop ? ' chop' : ''}${h.len ? ' long' : ''}`} style={{ gridColumn: `span ${span}` }}>
-        {h.s === 'mute' ? '×' : h.s === 'down' ? '▾' : '▴'}
-      </span>,
-    );
-    i += span - 1;
-  }
-  return <span className="strip" aria-hidden>{cells}</span>;
-}
-
-export function Setup({ engine, settings, best, onChange, onStart, onCalibrate, onTune }: Props) {
+export function Setup({ engine, settings, best, onChange, onStart, onCalibrate, onTune, onGuide }: Props) {
   const [micReady, setMicReady] = useState(engine.micReady);
   const [micError, setMicError] = useState('');
   const [askMic, setAskMic] = useState(false);
@@ -59,6 +45,7 @@ export function Setup({ engine, settings, best, onChange, onStart, onCalibrate, 
   const lengths = lengthOptions(prog);
   const length = songLength(prog, settings.bars, false).playBars;
   const speakers = settings.output === 'speakers';
+  const learn = settings.mode === 'learn';
 
   const start = () => {
     if (songError) return;
@@ -70,7 +57,8 @@ export function Setup({ engine, settings, best, onChange, onStart, onCalibrate, 
     <div className="menu">
       <header className="masthead">
         <h1>Play Along</h1>
-        <p>Strum your guitar in time with the notes. The mic listens for the beat and the chord.</p>
+        <p>Strum your guitar along with the notes. The mic listens for your strums and your chords.</p>
+        <button className="btn quiet guide-link" onClick={onGuide}>New to guitar? Chords and strumming, explained</button>
       </header>
 
       <section className="input-strip" aria-label="Microphone">
@@ -106,16 +94,16 @@ export function Setup({ engine, settings, best, onChange, onStart, onCalibrate, 
           {PATTERNS.map((p) => (
             <label key={p.id} className={`row${settings.patternId === p.id ? ' on' : ''}`}>
               <input type="radio" name="pattern" checked={settings.patternId === p.id} onChange={() => set('patternId', p.id)} />
-              <span className="row-name">{p.name}<small>{p.level}</small></span>
-              <PatternStrip pattern={p} />
+              <span className="row-name pattern">{p.name}<small>{p.level}: {p.say.toLowerCase()}</small></span>
+              <StrumStrip slots={slotsFromHits(p.hits)} />
             </label>
           ))}
           <p className="key">
-            <span><span className="k down">▾</span> down</span>
-            <span><span className="k up">▴</span> up</span>
+            <span><span className="k down">▼</span> down</span>
+            <span><span className="k up">▲</span> up</span>
             <span><span className="k mute">×</span> muted chuck</span>
-            <span><span className="k down long">▾</span> let it ring</span>
-            <span><span className="k down chop">▾</span> chop: mute right after</span>
+            <span><span className="k down long">▼</span> let it ring</span>
+            <span><span className="k down chop">▼</span> chop: mute right after</span>
           </p>
           <p className="note">The arrows suggest which way to strum. The game checks your timing and your chord; it can't hear the direction.</p>
         </fieldset>
@@ -152,7 +140,14 @@ export function Setup({ engine, settings, best, onChange, onStart, onCalibrate, 
             <button key={b} role="radio" aria-checked={length === b} className={length === b ? 'on' : ''} onClick={() => set('bars', b)}>{b} bars</button>
           ))}
         </div>
-        <button className="btn go" onClick={start} disabled={!!songError}>Start playing</button>
+        <div className="mode">
+          <div className="seg" role="radiogroup" aria-label="How to play">
+            <button role="radio" aria-checked={learn} className={learn ? 'on' : ''} onClick={() => set('mode', 'learn')}>Learn</button>
+            <button role="radio" aria-checked={!learn} className={!learn ? 'on' : ''} onClick={() => set('mode', 'play')}>Play</button>
+          </div>
+          <span>{learn ? 'The song waits for each strum.' : 'You keep up with the beat.'}</span>
+        </div>
+        <button className="btn go" onClick={start} disabled={!!songError}>{learn ? 'Start learning' : 'Start playing'}</button>
       </section>
       <p className="footnote">No guitar nearby? Space strums: hold it for long notes, tap it for chops. Esc pauses a song.</p>
     </div>

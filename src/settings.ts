@@ -2,7 +2,11 @@ import type { SavedSong, SongSettings } from './game/chart';
 
 export type Output = 'speakers' | 'headphones';
 
+export type Mode = 'learn' | 'play';
+
 export type AppSettings = SongSettings & {
+  /** learn: the song waits at every note until you have played it. play: you keep up with the beat. */
+  mode: Mode;
   customChords: string;
   /** Songs the player typed in and kept. */
   mySongs: SavedSong[];
@@ -21,6 +25,7 @@ export type AppSettings = SongSettings & {
 const KEY = 'play-along:settings';
 
 export const defaultSettings: AppSettings = {
+  mode: 'learn',
   bpm: 80, bars: 16, patternId: 'quarters', progressionId: 'pop', customChords: '', mySongs: [],
   output: 'speakers', latencyMs: 0, calibratedFor: null,
   sensitivity: 0.6, metronome: true, bassLine: true, checkChords: true, ringOut: true,

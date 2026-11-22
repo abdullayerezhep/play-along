@@ -117,6 +117,15 @@ input[type='range'], input[type='checkbox'], input[type='radio'] { accent-color:
 .row.on .row-name { color: var(--amber); }
 .row-name small { font-weight: 400; font-size: 13px; color: var(--bone-dim); }
 .chips { display: flex; gap: 6px; }
+.chip.chord-chip { border: 0; color: var(--bone); cursor: pointer; position: relative; }
+.chord-chip:hover, .chord-chip:focus-visible { background: var(--amber); color: #2a1606; }
+/* pointing at a chord shows its shape */
+.chip-pop {
+  display: none; position: absolute; z-index: 5; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+  padding: 10px 10px 4px; border-radius: 10px; background: var(--wood-2); pointer-events: none;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), inset 0 0 0 1px var(--line);
+}
+.chord-chip:hover .chip-pop, .chord-chip:focus-visible .chip-pop { display: block; }
 .chip {
   font: 600 17px/1 var(--display); min-width: 34px; text-align: center;
   padding: 5px 6px; border-radius: 5px; background: rgba(0, 0, 0, 0.25);
@@ -124,14 +133,18 @@ input[type='range'], input[type='checkbox'], input[type='radio'] { accent-color:
 
 /* pattern notation: one bar, eight eighth notes */
 .strip { --slot: 18px; display: grid; grid-template-columns: repeat(8, var(--slot)); gap: 3px; flex: none; }
-.slot { height: 20px; border-radius: 4px; background: rgba(0, 0, 0, 0.3); }
+.slot { grid-row: 1; height: 20px; border-radius: 4px; background: rgba(0, 0, 0, 0.3); }
+.slot.now { outline: 2px solid var(--bone); outline-offset: 1px; }
+.strip.counted { row-gap: 3px; }
+.strip .count { grid-row: 2; text-align: center; font-size: 11px; line-height: 1.2; color: var(--bone-dim); }
+.strip .count.now { color: var(--bone); font-weight: 600; }
 .slot:nth-child(even) { background: rgba(0, 0, 0, 0.2); }
 .slot.hit, .k { display: grid; place-items: center; font-size: 12px; line-height: 1; color: #2a1606; }
 .hit.down, .k.down { background: var(--amber); }
 .hit.up, .k.up { background: var(--patina); }
 .hit.mute, .k.mute { background: var(--bone-dim); font-weight: 700; }
 .hit.long, .k.long {
-  background: linear-gradient(90deg, var(--amber) 0 18px, rgba(255, 174, 66, 0.35) 18px);
+  background: linear-gradient(90deg, var(--amber) 0 var(--slot), rgba(255, 174, 66, 0.35) var(--slot));
   justify-items: start; padding-left: 4px;
 }
 .hit.chop, .k.chop { border-radius: 2px 9px 9px 2px; }
@@ -184,7 +197,7 @@ input[type='range'], input[type='checkbox'], input[type='radio'] { accent-color:
 .tempo { display: flex; align-items: center; gap: 14px; }
 .bpm { font: 800 48px/1 var(--display); min-width: 2.4em; display: flex; align-items: baseline; gap: 4px; font-variant-numeric: tabular-nums; }
 .bpm small { font: 600 14px var(--text); color: var(--bone-dim); }
-.tempo input { width: 160px; }
+.tempo input { width: 120px; }
 .seg { display: flex; background: rgba(0, 0, 0, 0.3); border-radius: 8px; padding: 3px; }
 .seg button {
   font: 600 13px var(--text); color: var(--bone-dim); background: transparent; border: 0;
@@ -200,7 +213,11 @@ input[type='range'], input[type='checkbox'], input[type='radio'] { accent-color:
   padding: 14px 16px; border-radius: 10px; background: var(--wood-2);
 }
 .ask-mic p { flex: 1; min-width: 16em; }
-.transport .go { margin-left: auto; }
+.mode { display: flex; flex-direction: column; gap: 5px; margin-left: auto; font-size: 12px; color: var(--bone-dim); max-width: 190px; }
+.mode .seg { width: fit-content; }
+.guide-link { margin-top: 16px; }
+.row-name.pattern { flex-direction: column; align-items: flex-start; gap: 1px; }
+.row.on .row-name.pattern small { color: var(--bone-dim); }
 .footnote { font-size: 13px; color: var(--bone-dim); text-align: right; margin-top: -10px; }
 
 /* ---------- game ---------- */
@@ -208,6 +225,7 @@ input[type='range'], input[type='checkbox'], input[type='radio'] { accent-color:
 .highway { width: 100%; height: 100%; display: block; }
 .hud-score { position: absolute; top: 24px; left: 28px; }
 .score-num { font: 800 54px/1 var(--display); font-variant-numeric: tabular-nums; }
+.score-num small { font: 400 18px var(--text); color: var(--bone-dim); }
 .combo { margin-top: 6px; font-size: 15px; display: flex; align-items: center; gap: 8px; }
 .mult { font: 800 18px/1 var(--display); background: var(--amber); color: #2a1606; padding: 3px 7px; border-radius: 5px; }
 /* the chord to hold now and the one to move to next, right beside the strum line */
@@ -215,7 +233,24 @@ input[type='range'], input[type='checkbox'], input[type='radio'] { accent-color:
   position: absolute; left: calc(50% + min(31vw, 260px) + 40px); bottom: 19%;
   display: grid; grid-template-columns: auto auto; align-items: end; gap: 6px 22px;
 }
-.chord-card { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.chord-card {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  background: none; border: 0; padding: 6px 8px; border-radius: 12px; color: inherit; font: inherit; cursor: pointer;
+}
+.chord-card:hover { background: rgba(236, 228, 212, 0.07); }
+.chord-card.waiting { animation: nudge 1.2s ease-in-out infinite; }
+@keyframes nudge { 50% { background: rgba(255, 174, 66, 0.16); } }
+.chord-hint { grid-column: 1 / -1; font-size: 12px; color: var(--bone-dim); }
+/* how to strum this bar, on the other side of the neck */
+.hud-strum {
+  position: absolute; right: calc(50% + min(31vw, 260px) + 40px); bottom: 19%;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+}
+.hud-strum .strip { --slot: 30px; gap: 4px; }
+.hud-strum .slot { height: 30px; font-size: 16px; }
+.hud-strum .count { font-size: 13px; }
+.say { font: 600 18px/1.2 var(--display); letter-spacing: 0.03em; color: var(--bone); }
+.hud-strum .say { font-size: 16px; color: var(--bone-dim); text-align: right; max-width: 270px; }
 .chord-name { font: 800 72px/0.9 var(--display); color: var(--amber); display: flex; align-items: baseline; gap: 8px; }
 .chord-card.next { opacity: 0.6; transition: opacity 0.2s; }
 .chord-card.next .chord-name { font-size: 40px; color: var(--bone); }
@@ -255,6 +290,10 @@ input[type='range'], input[type='checkbox'], input[type='radio'] { accent-color:
 .tally .bad { color: var(--red); }
 .advice { max-width: 34em; }
 .advice.dim { color: var(--bone-dim); }
+.results .done { font: 800 56px/1 var(--display); margin: 0; }
+.practise { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.results .chips { flex-wrap: wrap; justify-content: center; gap: 10px 16px; }
+.counted-chip { display: inline-flex; align-items: center; gap: 6px; color: var(--bone-dim); font-size: 14px; }
 .actions { display: flex; gap: 12px; justify-content: center; margin-top: 10px; flex-wrap: wrap; }
 
 /* ---------- calibration ---------- */
@@ -268,6 +307,51 @@ input[type='range'], input[type='checkbox'], input[type='radio'] { accent-color:
 }
 .calib-dot.pulse { animation: pulse 0.3s ease-out; }
 @keyframes pulse { from { background: var(--amber); color: #2a1606; } to { background: var(--wood-1); } }
+
+/* ---------- one chord, explained ---------- */
+.card-backdrop {
+  position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 20px; overflow: auto;
+  background: rgba(15, 9, 6, 0.84);
+}
+.chord-help {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 28px; width: 100%; max-width: 780px;
+  background: var(--wood-1); border-radius: 16px; padding: 28px;
+  box-shadow: 0 0 0 1px var(--line), 0 24px 60px rgba(0, 0, 0, 0.6);
+}
+.chord-help-figure { display: flex; flex-direction: column; align-items: center; gap: 8px; max-width: 220px; }
+.fig-note { font-size: 12px; color: var(--bone-dim); text-align: center; }
+.chord-help h2 { font: 800 72px/0.9 var(--display); color: var(--amber); margin: 0 0 14px; display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.chord-help h2 small { font: 400 16px var(--text); color: var(--bone-dim); }
+.chord-help ol { margin: 0 0 14px; padding-left: 1.3em; display: grid; gap: 6px; }
+.chord-help .tip { margin-bottom: 10px; }
+.made-of { font-size: 13px; color: var(--bone-dim); margin-bottom: 14px; }
+.try { padding: 12px 14px; border-radius: 10px; background: rgba(0, 0, 0, 0.28); margin-bottom: 16px; font-size: 15px; }
+.try.ok { background: rgba(111, 209, 191, 0.16); color: var(--patina); font-weight: 600; }
+.try.bad { background: rgba(240, 100, 90, 0.14); }
+
+/* ---------- the guide ---------- */
+.library { gap: 40px; }
+.lib-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.lib-head h1 { font: 800 clamp(44px, 7vw, 76px)/0.9 var(--display); margin: 0; }
+.library h2 { font: 800 34px/1 var(--display); margin: 0 0 8px; }
+.library section > .lede { margin-bottom: 16px; max-width: 46em; }
+.library b { color: var(--bone); }
+.lib-reading { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 28px; align-items: center; padding: 22px 26px; border-radius: 14px; background: var(--wood-1); color: var(--bone-dim); }
+.lib-reading ul { margin: 8px 0; padding-left: 1.2em; display: grid; gap: 6px; max-width: 44em; }
+.chord-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.chord-tile {
+  display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 14px 8px 12px;
+  border: 0; border-radius: 12px; background: var(--wood-1); color: var(--bone); font: inherit; cursor: pointer;
+}
+.chord-tile:hover { background: var(--wood-2); }
+.tile-name { font: 800 34px/1 var(--display); color: var(--amber); }
+.tile-full { font-size: 13px; color: var(--bone-dim); }
+.pattern-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; margin-bottom: 14px; }
+.pattern-card { padding: 16px 18px; border-radius: 12px; background: var(--wood-1); display: flex; flex-direction: column; gap: 9px; font-size: 14px; color: var(--bone-dim); }
+.pattern-card h3 { margin: 0; font: 600 17px var(--text); color: var(--bone); display: flex; align-items: baseline; gap: 10px; }
+.pattern-card h3 small { font-weight: 400; font-size: 13px; color: var(--bone-dim); }
+.pattern-card .strip { --slot: 28px; gap: 4px; }
+.pattern-card .slot { height: 28px; font-size: 15px; }
 
 /* ---------- tuner ---------- */
 .tuner { max-width: 560px; text-align: center; padding-top: 64px; }
@@ -316,4 +400,27 @@ input[type='range'], input[type='checkbox'], input[type='radio'] { accent-color:
 @media (prefers-reduced-motion: reduce) {
   .calib-dot.pulse { animation: none; }
   .tuner-needle, .chord-card.next { transition: none; }
+}
+
+@media (max-width: 1240px) {
+  .hud-strum .strip { --slot: 22px; gap: 3px; }
+  .hud-strum .slot { height: 24px; font-size: 13px; }
+  .hud-strum .say { max-width: 200px; font-size: 14px; }
+}
+@media (max-width: 1040px) {
+  /* no room beside the neck: the strumming goes under it */
+  .hud-strum { right: auto; left: 50%; transform: translateX(-50%); bottom: 44px; align-items: center; }
+  .hud-strum .strip { --slot: 26px; }
+  .hud-strum .say, .chord-hint { display: none; }
+  .mode { margin-left: 0; max-width: none; }
+}
+@media (max-width: 640px) {
+  .chord-help { grid-template-columns: 1fr; padding: 20px; gap: 14px; }
+  .chord-help-figure { max-width: none; }
+  .chord-help h2 { font-size: 56px; }
+  .lib-reading { grid-template-columns: 1fr; justify-items: center; }
+  .pattern-list { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chord-card.waiting { animation: none; background: rgba(255, 174, 66, 0.12); }
 }

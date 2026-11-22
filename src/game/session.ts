@@ -23,8 +23,8 @@ export type GameEvent =
   | { type: 'extra' }
   | { type: 'miss' }
   | { type: 'heard'; name: string; ok: boolean }
-  | { type: 'wrongChord'; note: Note; heard: string }
-  | { type: 'notMuted'; note: Note }
+  | { type: 'wrongChord'; note: Note; heard: string; retry: boolean }
+  | { type: 'notMuted'; note: Note; retry: boolean }
   | { type: 'rangOut'; note: Note; points: number }
   | { type: 'holdBroken'; note: Note; why: string }
   | { type: 'chop'; note: Note; ok: boolean };
@@ -36,6 +36,12 @@ type Options = {
   startTime: number;
   /** Measured mic delay, in seconds. */
   latency: number;
+  /**
+   * Learn mode: the song waits at every note until it is played right. `clock` then
+   * gives the song's position, because it no longer follows the audio clock.
+   */
+  wait?: boolean;
+  clock?: () => number;
   checkChords: boolean;
   probe: Probe;
   emit: (e: GameEvent) => void;
@@ -74,9 +80,26 @@ export class Session {
     this.quietUntil = Math.max(this.quietUntil, ctxTime + seconds);
   }
 
+  /**
+   * Learn mode: the song may not move past this point in time, because the note there
+   * has not been played yet. null = nothing is holding the song up.
+   */
+  waitingAt(): number | null {
+    if (!this.o.wait) return null;
+    const next = this.o.notes.find((n) => !n.result);
+    return next ? next.time : null;
+  }
+
+  /** Learn mode: the note the song is waiting for, once the song has reached it. */
+  waitingFor(songNow: number): Note | null {
+    if (!this.o.wait) return null;
+    const next = this.o.notes.find((n) => !n.result);
+    return next && songNow >= next.time - 1e-6 ? next : null;
+  }
+
   strum(s: StrumInput) {
-    const { notes, emit, spb } = this.o;
-    const t = s.time - this.o.startTime - (s.source === 'mic' ? this.o.latency : 0);
+    const { notes, emit, spb, wait } = this.o;
+    const t = wait ? this.o.clock!() : s.time - this.o.startTime - (s.source === 'mic' ? this.o.latency : 0);
     if (s.source === 'key') this.stats.keyStrums++;
 
     // strumming again cuts off a chord that was meant to ring
@@ -87,9 +110,11 @@ export class Session {
     const check = this.o.checkChords && s.source === 'mic';
     const hit = judgeStrum(notes, t, this.stats, check);
     if (!hit) {
-      if (this.isRealExtra(s, t)) { extraStrum(this.stats); emit({ type: 'extra' }); }
+      // while learning, strumming between the notes is just practice
+      if (!wait && this.isRealExtra(s, t)) { extraStrum(this.stats); emit({ type: 'extra' }); }
       return;
     }
+    if (wait && !check && !hit.tries) this.stats.firstTry++;
     hit.onsetCtx = s.time;
     hit.source = s.source;
     this.lastHitAt = s.time;
@@ -130,8 +155,9 @@ export class Session {
       const ratio = probe.decayRatio(onsetTime, onsetTime + 0.15);
       const ok = !clear || (ratio !== null && ratio < MUTED_RATIO);
       emit({ type: 'heard', name: ok ? 'muted' : heard, ok });
-      if (ok) confirmChord(note, this.stats);
-      else { rejectChord(note, this.stats); emit({ type: 'notMuted', note }); }
+      if (ok) this.accept(note);
+      else if (this.o.wait) { this.tryAgain(note); emit({ type: 'notMuted', note, retry: true }); }
+      else { rejectChord(note, this.stats); emit({ type: 'notMuted', note, retry: false }); }
       return;
     }
     // On a chord change only the newly added sound counts, because the old chord is
@@ -139,8 +165,28 @@ export class Session {
     // so a match on the whole sound is accepted too (a soft upstroke adds very little).
     const ok = matchesChord(result, note.chord) || (!note.chordChange && matchesChord(plain, note.chord));
     emit({ type: 'heard', name: ok ? note.chord : heard, ok });
-    if (ok) confirmChord(note, this.stats);
-    else { rejectChord(note, this.stats); emit({ type: 'wrongChord', note, heard }); }
+    if (ok) this.accept(note);
+    else if (this.o.wait) { this.tryAgain(note); emit({ type: 'wrongChord', note, heard, retry: true }); }
+    else { rejectChord(note, this.stats); emit({ type: 'wrongChord', note, heard, retry: false }); }
+  }
+
+  private accept(note: Note) {
+    if (this.o.wait && !note.tries) this.stats.firstTry++;
+    confirmChord(note, this.stats);
+  }
+
+  /** Learn mode: the note was not played right, so it is put back and the song waits for it again. */
+  private tryAgain(note: Note) {
+    note.result = undefined;
+    note.awaitingChord = false;
+    note.offset = undefined;
+    note.onsetCtx = undefined;
+    note.tries = (note.tries ?? 0) + 1;
+    if (note.chop) this.stats.chops--;
+    this.stats.offsets.pop();
+    this.stats.retries++;
+    const what = note.stroke === 'mute' ? 'muted strum' : note.chord;
+    this.stats.retryChords[what] = (this.stats.retryChords[what] ?? 0) + 1;
   }
 
   /** Call every frame. `songNow` is the song clock in seconds, `ctxNow` the audio clock. */

@@ -3,6 +3,7 @@ import type { Best } from '../best';
 import { CUSTOM_ID, MINE, getProgression, parseSong, suggestedBars, type SavedSong } from '../game/chart';
 import { DEFAULT_SONG, LEVELS, SONGS, type Group, type Level, type Song } from '../game/songs';
 import type { AppSettings } from '../settings';
+import { ChordChip } from './ChordChip';
 
 type Props = { settings: AppSettings; best: Best; onChange: (s: AppSettings) => void };
 type Tab = Level | 'mine';
@@ -13,7 +14,7 @@ function Chips({ bars }: { bars: string[][] }) {
   const chords = [...new Set(bars.flat())];
   return (
     <span className="chips">
-      {chords.slice(0, MAX_CHIPS).map((c) => <span key={c} className="chip">{c}</span>)}
+      {chords.slice(0, MAX_CHIPS).map((c) => <ChordChip key={c} chord={c} />)}
       {chords.length > MAX_CHIPS && <span className="chip more">+{chords.length - MAX_CHIPS}</span>}
     </span>
   );
