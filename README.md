@@ -16,18 +16,35 @@ Open the address it prints and turn on the microphone. The sound never leaves yo
 On a phone the mic only works on an `https` address. This repo publishes itself to
 GitHub Pages on every push to `main` (one-time setup: Settings → Pages → Source:
 "GitHub Actions"), which gives you `https://<your-name>.github.io/play-along/`.
+From there the phone's browser can add it to the home screen, where it opens full
+screen and works offline.
+
+Android and iOS apps are prepared with Capacitor but not yet tried on a device:
+see [docs/mobile.md](docs/mobile.md).
+
+## Finding your way around
+
+Four places, in a bar on the left (at the bottom on a phone):
+
+- **Songs.** Search or filter the list, then choose a song. Its page has everything
+  for that song in the order you need it: the chords to learn, how to strum it, how
+  fast, and the start button.
+- **Learn.** How to read a chord box, every chord, every strum pattern.
+- **Tuner.**
+- **Settings.** The microphone, speakers or headphones, the delay, and the rules.
+  Things you set once.
 
 ## New to guitar? Start here
 
 - **Learn mode** (the default): the song waits at every strum until you have played it,
   with the right chord. You cannot fall behind. Play the wrong chord and it tells you what
   it heard and waits for you to try again. Nothing is timed or graded.
-- **Chords and strumming guide** (the button under the title): how to read a chord box,
+- **Chords and strumming guide** (the Learn tab): how to read a chord box,
   every chord with its fingering, finger by finger, plus what usually goes wrong, and
   every strum pattern with its count and how to say it ("down, down-up, up-down-up").
 - **Point at any chord name** to see its shape. **Click it** for the full explanation.
   With the mic on, the card listens and tells you whether your chord sounds right.
-  This works in the song list, in the guide and during a song (the song stops while you read).
+  This works on a song's page, in the guide and during a song (the song stops while you read).
 - During a song, the chord to hold now is shown with finger numbers on one side of the neck,
   and the bar's strumming on the other: ▼ down, ▲ up, counted "1 & 2 & 3 & 4 &", with the
   current strum highlighted.
@@ -37,14 +54,16 @@ tempo, and your timing is scored.
 
 ## How to play
 
-1. **Turn on the microphone** and strum once. The light should blink once and show your chord.
-2. **Tune** with the built-in tuner. Chords are checked by pitch, so an out-of-tune guitar gets marked wrong.
-3. Say whether you hear the game through **speakers or headphones**. Through speakers the
+1. **Turn on the microphone** and open Settings. Strum once: the light should blink once and show your chord.
+2. **Tune** with the Tuner. Chords are checked by pitch, so an out-of-tune guitar gets marked wrong.
+3. In Settings, say whether you hear the game through **speakers or headphones**. Through speakers the
    bass line stays off, because the mic would hear it as your guitar. The click is fine either way.
 4. Before your first song in Play mode the game **measures the delay** of your mic and
    speakers (strum along to 12 ticks). Without it every strum looks late.
-5. Pick a **song** from the library (see below). It sets a tempo and strum that suit it.
-6. Change the **strum pattern** or tempo if you like, then start.
+5. Pick a **song**. It sets a tempo and strum that suit it.
+6. On the song's page, change the **strum** or the speed if you like, then start.
+
+Your best result on a song (Play mode, real guitar) is shown as one to five stars.
 
 ### Reading the notes
 
@@ -60,13 +79,13 @@ The arrows are advice only: the game can't hear which way you strum.
 
 Beside the strum line you see the chord to hold now and the shape of the **next** chord,
 which lights up two beats before the change. In Play mode, strumming where the song has
-no note ends your streak and counts against your grade. **Esc** pauses.
+no note ends your streak and counts against your result. **Esc** pauses.
 
-No guitar nearby? **Space** strums: hold it for long notes, tap it for chops.
+No guitar nearby? **Space** strums: hold it for long notes, tap it for chops. On a phone, tap the neck.
 
 ## The song library
 
-66 songs in four levels. Your best grade on each song (played on a real guitar, not the
+66 songs in four levels. Your best result on each song, in stars (played on a real guitar, not the
 Space bar) is shown next to it.
 
 | Level | What makes it that level | Hits | Traditional |
@@ -107,12 +126,14 @@ To add a song to the built-in library, add one line to `src/game/songs.ts`.
 | **Rules.** Which strum hits which note, waiting in Learn mode, extra strums, long notes, chops, scoring. No audio or drawing in here. | `src/game/session.ts`, `src/game/judge.ts` |
 | **Chord guide.** Fingerings, step-by-step instructions and tips for every chord. | `src/game/chordGuide.ts` |
 | **Drawing.** The neck, strings and notes. | `src/game/highway.ts` |
-| **Screens.** Menu, game, delay measurement, tuner, results. | `src/components/` |
+| **Screens.** The frame with its tabs, the song list, a song's page, settings, game, delay measurement, tuner, results. | `src/components/` |
+| **Navigation.** Which screen is showing, kept in the browser history so Back works everywhere. | `src/nav.ts` |
+| **Phone apps.** The only code that knows about the native shell. | `src/native.ts`, `capacitor.config.ts`, `android/`, `ios/` |
 
 ## Tests
 
 ```bash
-npm test          # 56 tests, about 30 seconds
+npm test          # 59 tests, about 30 seconds
 npm run lint
 npm run typecheck
 ```
@@ -136,3 +157,4 @@ readouts ("You played …", the strum light) show what the game heard.
 - Fast, soft upstrokes (eighths above about 120 bpm) need a higher sensitivity.
 - Only major, minor and 7th chords are recognised. `Am` and `C`, or `G` and `Em`, share two notes and are the easiest to confuse.
 - Distorted electric guitar and Bluetooth microphones are untested.
+- The phone apps have not run on a real phone yet. [docs/mobile.md](docs/mobile.md) lists what to check first.
