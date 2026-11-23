@@ -75,8 +75,11 @@ export class Highway {
     g.closePath();
   }
 
-  /** `now` is the song clock in seconds (negative during the count-in). `frozen` stops the string motion. */
-  draw(now: number, notes: Note[], frozen = false) {
+  /**
+   * `now` is the song clock in seconds (negative during the count-in). `frozen` stops the
+   * string motion. `hint` is written under the strum line, for when the song is waiting.
+   */
+  draw(now: number, notes: Note[], frozen = false, hint?: string) {
     const g = this.g;
     g.clearRect(0, 0, this.W, this.H);
     this.drawBoard(now);
@@ -111,6 +114,7 @@ export class Highway {
     for (let i = visible.length - 1; i >= 0; i--) this.drawNote(visible[i], now);
 
     if (now < 0) this.drawCountIn(now);
+    if (hint) this.drawHint(hint);
     this.drawPopups();
   }
 
@@ -222,7 +226,7 @@ export class Highway {
     const s = this.sc(d), y = this.py(d);
     const missed = n.result === 'miss';
     const half = n.chop ? 0.26 : 0.46;
-    const h = Math.max(4, 20 * s);
+    const h = Math.max(5, 26 * s);
     const x0 = this.px(-half, d), w = this.px(half, d) - x0;
     const color = missed ? '#5a4c44' : COLORS[n.stroke];
     g.save();
@@ -234,7 +238,7 @@ export class Highway {
     // engraving: suggested direction, or crosses for a muted chuck
     g.fillStyle = 'rgba(31,20,16,0.85)';
     g.strokeStyle = 'rgba(31,20,16,0.85)';
-    const a = h * 0.32;
+    const a = h * 0.34;
     if (n.stroke === 'mute') {
       g.lineWidth = Math.max(1.5, 2.5 * s);
       for (const u of [-0.3, -0.1, 0.1, 0.3]) {
@@ -243,8 +247,8 @@ export class Highway {
       }
     } else {
       g.beginPath();
-      if (n.stroke === 'down') { g.moveTo(this.cx - a * 1.4, y - a); g.lineTo(this.cx + a * 1.4, y - a); g.lineTo(this.cx, y + a); }
-      else { g.moveTo(this.cx - a * 1.4, y + a); g.lineTo(this.cx + a * 1.4, y + a); g.lineTo(this.cx, y - a); }
+      if (n.stroke === 'down') { g.moveTo(this.cx - a * 1.7, y - a); g.lineTo(this.cx + a * 1.7, y - a); g.lineTo(this.cx, y + a); }
+      else { g.moveTo(this.cx - a * 1.7, y + a); g.lineTo(this.cx + a * 1.7, y + a); g.lineTo(this.cx, y - a); }
       g.fill();
     }
     if (n.chop && !missed) { // a dot marks a chop, like staccato in sheet music
@@ -289,6 +293,17 @@ export class Highway {
     g.font = `800 ${Math.round(120 + f * 30)}px "Big Shoulders Display", sans-serif`;
     g.textAlign = 'center';
     g.fillText(String(left), this.cx, this.py(LOOKAHEAD * 0.45));
+  }
+
+  /** What the song is waiting for, gently pulsing just under the strum line. */
+  private drawHint(text: string) {
+    const g = this.g;
+    g.globalAlpha = 0.7 + 0.3 * Math.sin(performance.now() / 260) * this.o.motion;
+    g.fillStyle = COLORS.down;
+    g.font = '800 30px "Big Shoulders Display", sans-serif';
+    g.textAlign = 'center';
+    g.fillText(text, this.cx, this.py(0) + 46);
+    g.globalAlpha = 1;
   }
 
   /** Judgement words, newest at the bottom. */

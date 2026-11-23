@@ -19,6 +19,7 @@ export type Note = {
   result?: 'perfect' | 'good' | 'miss' | 'wrong';
   awaitingChord?: boolean;
   offset?: number; // seconds, +late / -early
+  tries?: number; // learn mode: failed attempts so far
   onsetCtx?: number; // AudioContext time of the strum that hit it
   source?: 'mic' | 'key';
   hold?: 'holding' | 'broken' | 'done';
@@ -26,27 +27,79 @@ export type Note = {
   chopState?: 'ok' | 'rang';
 };
 
-type Hit = { b: number; s: Stroke; len?: number; chop?: boolean };
-export type Pattern = { id: string; name: string; level: string; hits: Hit[] };
+export type Hit = { b: number; s: Stroke; len?: number; chop?: boolean };
+export type Pattern = {
+  id: string;
+  name: string;
+  level: string;
+  hits: Hit[];
+  /** How to say it out loud while playing. */
+  say: string;
+  /** What to pay attention to. */
+  about: string;
+};
 
 const d = (b: number, extra: Partial<Hit> = {}): Hit => ({ b, s: 'down', ...extra });
 const u = (b: number, extra: Partial<Hit> = {}): Hit => ({ b, s: 'up', ...extra });
 const x = (b: number): Hit => ({ b, s: 'mute' });
 
 export const PATTERNS: Pattern[] = [
-  { id: 'ring', name: 'Let it ring', level: 'Warm-up', hits: [d(0, { len: 3.5 })] },
-  { id: 'half', name: 'Half notes, let ring', level: 'Easy', hits: [d(0, { len: 1.5 }), d(2, { len: 1.5 })] },
-  { id: 'quarters', name: 'Quarter downs', level: 'Easy', hits: [d(0), d(1), d(2), d(3)] },
-  { id: 'boom-chuck', name: 'Boom-chuck', level: 'Easy', hits: [d(0), x(1), d(2), x(3)] },
-  { id: 'folk', name: 'Folk strum', level: 'Medium', hits: [d(0), d(1), u(1.5), u(2.5), d(3), u(3.5)] },
-  { id: 'folk-chuck', name: 'Folk with chucks', level: 'Medium', hits: [d(0), x(1), u(1.5), u(2.5), x(3), u(3.5)] },
-  { id: 'skank', name: 'Reggae skank', level: 'Medium', hits: [d(1, { chop: true }), d(3, { chop: true })] },
-  { id: 'offbeat', name: 'Offbeat ups', level: 'Medium', hits: [u(0.5), u(1.5), u(2.5), u(3.5)] },
+  {
+    id: 'ring', name: 'Let it ring', level: 'Warm-up', hits: [d(0, { len: 3.5 })],
+    say: 'Down, and wait',
+    about: 'One strum at the start of each bar. Keep your fingers pressed down so the chord keeps sounding, and use the time to look at the next chord.',
+  },
+  {
+    id: 'half', name: 'Half notes, let ring', level: 'Easy', hits: [d(0, { len: 1.5 }), d(2, { len: 1.5 })],
+    say: 'Down, wait, down, wait',
+    about: 'Two strums per bar, on beats 1 and 3. Let each one ring.',
+  },
+  {
+    id: 'quarters', name: 'Quarter downs', level: 'Easy', hits: [d(0), d(1), d(2), d(3)],
+    say: 'Down, down, down, down',
+    about: 'One downstrum on every beat. Count "1, 2, 3, 4" out loud and keep the strums even.',
+  },
+  {
+    id: 'down-up', name: 'Down, down-up', level: 'Easy', hits: [d(0), d(1), u(1.5), d(2), d(3), u(3.5)],
+    say: 'Down, down-up, down, down-up',
+    about: 'Your first upstrums. After beats 2 and 4 the hand comes back up and brushes the thin strings on the way. An upstrum only needs to catch three or four strings.',
+  },
+  {
+    id: 'boom-chuck', name: 'Boom-chuck', level: 'Easy', hits: [d(0), x(1), d(2), x(3)],
+    say: 'Down, chk, down, chk',
+    about: 'A strum, then a muted "chk": relax your fretting hand so the strings stop ringing, and strum the dead strings.',
+  },
+  {
+    id: 'folk', name: 'Folk strum', level: 'Medium', hits: [d(0), d(1), u(1.5), u(2.5), d(3), u(3.5)],
+    say: 'Down, down-up, up-down-up',
+    about: 'The strum behind thousands of songs. The trick: your hand keeps swinging down on every beat and up in between, like a pendulum. On beat 3 it swings down without touching the strings.',
+  },
+  {
+    id: 'folk-chuck', name: 'Folk with chucks', level: 'Medium', hits: [d(0), x(1), u(1.5), u(2.5), x(3), u(3.5)],
+    say: 'Down, chk-up, up-chk-up',
+    about: 'The folk strum with the downstrums on beats 2 and 4 muted. It gives the rhythm a snare-drum snap.',
+  },
+  {
+    id: 'skank', name: 'Reggae skank', level: 'Medium', hits: [d(1, { chop: true }), d(3, { chop: true })],
+    say: 'Rest, chop, rest, chop',
+    about: 'Short strums on beats 2 and 4 only. Strum, then release the pressure of your fretting hand straight away so the chord is cut off.',
+  },
+  {
+    id: 'offbeat', name: 'Offbeat ups', level: 'Medium', hits: [u(0.5), u(1.5), u(2.5), u(3.5)],
+    say: 'And, and, and, and',
+    about: 'Only upstrums, between the beats. Tap your foot on the beat and strum when the foot is up.',
+  },
   {
     id: 'funk', name: 'Funk chops', level: 'Hard',
     hits: [d(0, { chop: true }), d(1), u(1.5, { chop: true }), x(2), d(3), u(3.5, { chop: true })],
+    say: 'Chop, down-chop, chk, down-chop',
+    about: 'Short chops, a muted strum and normal strums mixed together. Learn it very slowly first.',
   },
-  { id: 'eighths', name: 'Straight eighths', level: 'Hard', hits: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5].map((b) => (b % 1 ? u(b) : d(b))) },
+  {
+    id: 'eighths', name: 'Straight eighths', level: 'Hard', hits: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5].map((b) => (b % 1 ? u(b) : d(b))),
+    say: 'Down-up, down-up, down-up, down-up',
+    about: 'Down on every beat, up in between, without a gap. Keep the wrist loose; the hard part is staying even.',
+  },
 ];
 
 /** A song as the game plays it: see Song in songs.ts for the library's extra details. */

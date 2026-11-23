@@ -148,3 +148,78 @@ describe('long notes and chops', () => {
     expect(session.stats).toMatchObject({ chops: 2, chopsOk: 1, extra: 0 });
   });
 });
+
+describe('learn mode: the song waits for you', () => {
+  function learn(patternId: string, checkChords = true) {
+    const events: GameEvent[] = [];
+    const probe: Probe = { suddenDrop: () => false, decayRatio: () => 0.8, keyHeld: false, keyReleasedAt: -Infinity };
+    const notes = buildChart({ bpm: BPM, bars: 4, patternId, progressionId: 'pop', ringOut: false });
+    let song = -1;  // the game's own song clock, in seconds
+    let clock = 50; // the audio clock, which never stops
+    const session = new Session({
+      notes, spb: SPB, startTime: 0, latency: 0, checkChords, probe, wait: true, clock: () => song, emit: (e) => events.push(e),
+    });
+    /** Let `seconds` pass the way the game does: the song moves on, but never past an unplayed note. */
+    const pass = (seconds: number) => {
+      clock += seconds;
+      const stop = session.waitingAt();
+      song = stop === null ? song + seconds : Math.min(song + seconds, stop);
+      session.update(song, clock);
+    };
+    /** Strum now. Returns the strum's time, which the chord result refers to. */
+    const strum = (source: 'mic' | 'key' = 'key') => { session.strum({ time: clock, level: 0.2, source }); return clock; };
+    return { session, events, notes, pass, strum, now: () => song, rewind: (t: number) => { song = Math.min(song, t); } };
+  }
+
+  test('the song stops at a note and stays there until it is strummed', () => {
+    const { session, pass, strum, now } = learn('quarters', false);
+    pass(30); // half a minute of doing nothing
+    expect(now()).toBe(0);
+    expect(session.waitingFor(now())).toMatchObject({ beat: 0, chord: 'G' });
+    expect(session.stats.miss).toBe(0);
+    strum();
+    pass(30);
+    expect(now()).toBeCloseTo(SPB); // moved on to the second note, and waits again
+    expect(session.stats).toMatchObject({ perfect: 1, firstTry: 1, miss: 0 });
+  });
+
+  test('the wrong chord does not count: the note comes back and the song waits for it', () => {
+    const { session, events, notes, pass, strum, now, rewind } = learn('quarters');
+    pass(5);
+    const first = strum('mic');
+    pass(0.1); // the song moves on while the chord is being checked…
+    expect(now()).toBeCloseTo(0.1);
+    session.chord(first, heard('C'));
+    expect(events.at(-1)).toMatchObject({ type: 'wrongChord', heard: 'C', retry: true });
+    rewind(notes[0].time); // …and the game puts it back
+    pass(5);
+    expect(now()).toBe(0);
+    expect(session.stats).toMatchObject({ wrong: 0, retries: 1, firstTry: 0, retryChords: { G: 1 } });
+
+    const second = strum('mic');
+    session.chord(second, heard('G'));
+    pass(5);
+    expect(session.stats).toMatchObject({ perfect: 1, retries: 1, firstTry: 0 });
+    expect(now()).toBeCloseTo(SPB);
+  });
+
+  test('strumming between the notes costs nothing while learning', () => {
+    const { session, pass, strum } = learn('half', false);
+    pass(5);
+    strum();
+    pass(0.5);
+    strum(); // nowhere near the next note
+    expect(session.stats.extra).toBe(0);
+  });
+
+  test('a whole song can be played at any pace, and every note is right in the end', () => {
+    const { session, notes, pass, strum, now } = learn('folk', false);
+    for (let i = 0; i < notes.length; i++) {
+      pass(3 + (i % 4)); // the player takes their time
+      strum();
+    }
+    pass(10);
+    expect(session.stats).toMatchObject({ perfect: notes.length, miss: 0, firstTry: notes.length, retries: 0 });
+    expect(now()).toBeGreaterThan(notes.at(-1)!.time);
+  });
+});

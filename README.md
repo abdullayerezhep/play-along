@@ -17,14 +17,32 @@ On a phone the mic only works on an `https` address. This repo publishes itself 
 GitHub Pages on every push to `main` (one-time setup: Settings → Pages → Source:
 "GitHub Actions"), which gives you `https://<your-name>.github.io/play-along/`.
 
+## New to guitar? Start here
+
+- **Learn mode** (the default): the song waits at every strum until you have played it,
+  with the right chord. You cannot fall behind. Play the wrong chord and it tells you what
+  it heard and waits for you to try again. Nothing is timed or graded.
+- **Chords and strumming guide** (the button under the title): how to read a chord box,
+  every chord with its fingering, finger by finger, plus what usually goes wrong, and
+  every strum pattern with its count and how to say it ("down, down-up, up-down-up").
+- **Point at any chord name** to see its shape. **Click it** for the full explanation.
+  With the mic on, the card listens and tells you whether your chord sounds right.
+  This works in the song list, in the guide and during a song (the song stops while you read).
+- During a song, the chord to hold now is shown with finger numbers on one side of the neck,
+  and the bar's strumming on the other: ▼ down, ▲ up, counted "1 & 2 & 3 & 4 &", with the
+  current strum highlighted.
+
+When a song goes well in Learn mode, switch to **Play mode**: the song keeps going at its
+tempo, and your timing is scored.
+
 ## How to play
 
 1. **Turn on the microphone** and strum once. The light should blink once and show your chord.
 2. **Tune** with the built-in tuner. Chords are checked by pitch, so an out-of-tune guitar gets marked wrong.
 3. Say whether you hear the game through **speakers or headphones**. Through speakers the
    bass line stays off, because the mic would hear it as your guitar. The click is fine either way.
-4. Before your first song the game **measures the delay** of your mic and speakers
-   (strum along to 12 ticks). Without it every strum looks late.
+4. Before your first song in Play mode the game **measures the delay** of your mic and
+   speakers (strum along to 12 ticks). Without it every strum looks late.
 5. Pick a **song** from the library (see below). It sets a tempo and strum that suit it.
 6. Change the **strum pattern** or tempo if you like, then start.
 
@@ -41,8 +59,8 @@ GitHub Pages on every push to `main` (one-time setup: Settings → Pages → Sou
 The arrows are advice only: the game can't hear which way you strum.
 
 Beside the strum line you see the chord to hold now and the shape of the **next** chord,
-which lights up two beats before the change. Strumming where the song has no note ends
-your streak and counts against your grade. **Esc** pauses.
+which lights up two beats before the change. In Play mode, strumming where the song has
+no note ends your streak and counts against your grade. **Esc** pauses.
 
 No guitar nearby? **Space** strums: hold it for long notes, tap it for chops.
 
@@ -86,14 +104,15 @@ To add a song to the built-in library, add one line to `src/game/songs.ts`.
 | **Tuner.** Pitch of a single string by autocorrelation. | `src/audio/pitch.ts` |
 | **Audio engine.** Mic, click, bass, all on the audio clock. | `src/audio/engine.ts` |
 | **Songs.** The library, the chord-text reader, strum patterns, chord shapes (open or barre) for any chord. | `src/game/songs.ts`, `src/game/songText.ts`, `src/game/chart.ts` |
-| **Rules.** Which strum hits which note, extra strums, long notes, chops, scoring. No audio or drawing in here. | `src/game/session.ts`, `src/game/judge.ts` |
+| **Rules.** Which strum hits which note, waiting in Learn mode, extra strums, long notes, chops, scoring. No audio or drawing in here. | `src/game/session.ts`, `src/game/judge.ts` |
+| **Chord guide.** Fingerings, step-by-step instructions and tips for every chord. | `src/game/chordGuide.ts` |
 | **Drawing.** The neck, strings and notes. | `src/game/highway.ts` |
 | **Screens.** Menu, game, delay measurement, tuner, results. | `src/components/` |
 
 ## Tests
 
 ```bash
-npm test          # 47 tests, about 30 seconds
+npm test          # 56 tests, about 30 seconds
 npm run lint
 npm run typecheck
 ```
