@@ -69,7 +69,7 @@ export function Calibrate({ engine, firstRun, onDone }: Props) {
 
   const counting = phase === 'running' && beat < COUNT_IN;
   return (
-    <div className="menu calibrate">
+    <div className="calibrate">
       <section>
         <h2>{firstRun ? 'First, measure the delay' : 'Measure the delay'}</h2>
         <p className="lede">Sound takes a moment to get through your speakers and mic. Without this, every strum looks late. After 4 count-in ticks, strum once on each of the next {CLICKS}. Keep strums short and mute between them.</p>

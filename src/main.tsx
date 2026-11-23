@@ -6,6 +6,9 @@ import '@fontsource/big-shoulders-display/latin-800'
 import '@fontsource/instrument-sans/latin-400'
 import '@fontsource/instrument-sans/latin-600'
 import './index.css'
+import { setupNative } from './native'
+
+setupNative()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

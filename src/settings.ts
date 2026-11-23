@@ -20,22 +20,26 @@ export type AppSettings = SongSettings & {
   bassLine: boolean;
   checkChords: boolean;
   ringOut: boolean;
+  /** The first-visit welcome has been answered or dismissed. */
+  welcomed: boolean;
 };
 
 const KEY = 'play-along:settings';
 
 export const defaultSettings: AppSettings = {
   mode: 'learn',
-  bpm: 80, bars: 16, patternId: 'quarters', progressionId: 'pop', customChords: '', mySongs: [],
+  // a newcomer starts on the one-chord warm-up
+  bpm: 70, bars: 16, patternId: 'ring', progressionId: 'em', customChords: '', mySongs: [],
   output: 'speakers', latencyMs: 0, calibratedFor: null,
-  sensitivity: 0.6, metronome: true, bassLine: true, checkChords: true, ringOut: true,
+  sensitivity: 0.6, metronome: true, bassLine: true, checkChords: true, ringOut: true, welcomed: false,
 };
 
 export function loadSettings(): AppSettings {
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return defaultSettings;
-    const s = { ...defaultSettings, ...JSON.parse(raw) };
+    // someone with saved settings has been here before
+    const s = { ...defaultSettings, welcomed: true, ...JSON.parse(raw) };
     if (s.patternId === 'one') s.patternId = 'ring'; // renamed pattern
     return s;
   } catch {
