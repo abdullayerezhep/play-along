@@ -47,7 +47,7 @@ export function ChordCard({ chord, engine, onClose }: Props) {
           <p className="tip">{guide.tip}</p>
           <p className="made-of">Notes in it: {guide.notes.join(', ')}.{guide.songs.length > 0 && <> Used in {guide.songs.join(', ')}.</>}</p>
           <div className={`try${heard ? (heard.ok ? ' ok' : ' bad') : ''}`} aria-live="polite">
-            {!listening ? 'Turn on the microphone in the menu and this card will tell you whether your chord sounds right.'
+            {!listening ? 'Turn on the microphone in Settings and this card will tell you whether your chord sounds right.'
               : !heard ? 'Try it: strum the chord and I will listen.'
               : heard.ok ? `That sounds like ${chord}.`
               : `I heard ${heard.name}, not ${chord}. Check each finger, then pick the strings one at a time to find the one that is off.`}

@@ -6,14 +6,11 @@ import { slotsFromHits } from '../game/slots';
 import { StrumStrip } from './StrumStrip';
 
 /** The guide: how to read a chord box, every chord with its fingering, and every strum pattern. */
-export function Library({ onDone }: { onDone: () => void }) {
+export function Library() {
   const showHelp = useChordHelp();
   return (
-    <div className="menu library">
-      <header className="lib-head">
-        <h1>Chords and strumming</h1>
-        <button className="btn quiet" onClick={onDone}>Back to the songs</button>
-      </header>
+    <div className="library">
+      <header className="page-head"><h1>Chords and strumming</h1></header>
 
       <section className="lib-reading">
         <ChordDiagram chord="C" size={170} fingers />
@@ -70,8 +67,6 @@ export function Library({ onDone }: { onDone: () => void }) {
         </div>
         <p className="note">The game hears when you strum and which chord it is. It cannot hear whether a strum went down or up, so the arrows are there to teach the pattern, not to be judged.</p>
       </section>
-
-      <div className="actions"><button className="btn" onClick={onDone}>Back to the songs</button></div>
     </div>
   );
 }

@@ -252,7 +252,10 @@ export function Game({ engine, settings, onFinish, onRestart, onQuit }: Props) {
 
   return (
     <div className="game">
-      <canvas ref={canvasRef} className="highway" />
+      {/* a tap on the neck is a strum too: the phone's answer to the Space bar */}
+      <canvas ref={canvasRef} className="highway"
+        onPointerDown={(e) => { if (e.pointerType !== 'mouse') engine.tap(); }}
+        onPointerUp={() => engine.release()} onPointerCancel={() => engine.release()} />
       <div className="hud-score">
         {learn ? (
           <>

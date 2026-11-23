@@ -1,5 +1,6 @@
 import { accuracy, grade, median, type Stats } from '../game/judge';
 import { ChordChip } from './ChordChip';
+import { Stars } from './Stars';
 
 type Props = {
   stats: Stats; learn: boolean; newBest: boolean; calibrated: boolean; usedMic: boolean;
@@ -12,7 +13,7 @@ function LearnResults({ stats, onRetry, onMenu, onPlayMode }: Pick<Props, 'stats
   const share = total ? stats.firstTry / total : 0;
   const hard = Object.entries(stats.retryChords).sort((a, b) => b[1] - a[1]).slice(0, 4);
   return (
-    <div className="menu results">
+    <div className="results">
       <h2 className="done">You played the whole song</h2>
       <dl className="tally">
         <div><dt>Right first time</dt><dd className="perfect">{stats.firstTry}/{total}</dd></div>
@@ -50,7 +51,7 @@ export function Results(props: Props) {
   const g = grade(acc);
   const lean = Math.round(median(stats.offsets) * 1000);
   const tip =
-    usedMic && !calibrated ? 'Timing was judged with a guessed delay. Measure the delay from the menu to get a fair timing score.'
+    usedMic && !calibrated ? 'Timing was judged with a guessed delay. Measure the delay in Settings to get a fair timing score.'
     : stats.offsets.length < 4 ? 'Not enough hits to read your timing yet.'
     : Math.abs(lean) < 15 ? 'Your timing sits right on the beat.'
     : lean > 0 ? `You tend to strum ${lean} ms late. Try moving a touch earlier.`
@@ -59,8 +60,8 @@ export function Results(props: Props) {
   if (learn) return <LearnResults {...props} />;
 
   return (
-    <div className="menu results">
-      <div className={`grade grade-${g}`} aria-label={`Grade ${g}`}>{g}</div>
+    <div className="results">
+      <Stars grade={g} big />
       {newBest && <p className="new-best">Your best on this song so far</p>}
       <div className="final-score">{stats.score.toLocaleString()}</div>
       <p className="lede">{Math.round(acc * 100)}% accurate, longest streak {stats.maxCombo}</p>

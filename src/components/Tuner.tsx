@@ -6,10 +6,13 @@ import { median } from '../game/judge';
 type Reading = { index: number; cents: number };
 
 /** Pluck one string at a time; shows which string it is and how far off it is. */
-export function Tuner({ engine, onDone }: { engine: AudioEngine; onDone: () => void }) {
+type Props = { engine: AudioEngine; micOn: boolean; micError: string; onMic: () => void };
+
+export function Tuner({ engine, micOn, micError, onMic }: Props) {
   const [reading, setReading] = useState<Reading | null>(null);
 
   useEffect(() => {
+    if (!micOn) return;
     const buf = new Float32Array(4096);
     let recent: number[] = [];
     let raf = 0, last = 0, quiet = 0;
@@ -29,7 +32,7 @@ export function Tuner({ engine, onDone }: { engine: AudioEngine; onDone: () => v
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [engine]);
+  }, [engine, micOn]);
 
   const inTune = reading !== null && Math.abs(reading.cents) <= 5;
   const cents = reading ? Math.max(-50, Math.min(50, reading.cents)) : 0;
@@ -38,22 +41,28 @@ export function Tuner({ engine, onDone }: { engine: AudioEngine; onDone: () => v
     : reading.cents < 0 ? 'Too low. Tighten the string a little.' : 'Too high. Loosen the string a little.';
 
   return (
-    <div className="menu tuner">
-      <section>
-        <h2>Tune your guitar</h2>
-        <p className="lede">The game checks your chords by pitch, so a guitar that is out of tune gets marked wrong.</p>
-        <div className="strings" aria-hidden>
-          {GUITAR_STRINGS.map((s, i) => <span key={i} className={reading?.index === i ? (inTune ? 'on ok' : 'on') : ''}>{s.name}</span>)}
+    <div className="tuner">
+      <header className="page-head"><h1>Tuner</h1></header>
+      <p className="lede">The game checks your chords by pitch, so a guitar that is out of tune gets marked wrong.</p>
+      {!micOn ? (
+        <div className="ask-mic">
+          <p>{micError || 'The tuner listens through the microphone.'}</p>
+          <button className="btn" onClick={onMic}>Turn on microphone</button>
         </div>
-        <div className={`tuner-note${inTune ? ' ok' : ''}`}>{reading ? GUITAR_STRINGS[reading.index].name : '–'}</div>
-        <p className="dim">{reading ? GUITAR_STRINGS[reading.index].label : 'Standard tuning: E A D G B E'}</p>
-        <div className="tuner-scale" role="meter" aria-valuemin={-50} aria-valuemax={50} aria-valuenow={Math.round(cents)} aria-label="Cents away from in tune">
-          <span className="tuner-zone" />
-          {reading && <span className={`tuner-needle${inTune ? ' ok' : ''}`} style={{ left: `${50 + cents}%` }} />}
-        </div>
-        <p className="advice" aria-live="polite">{advice}</p>
-        <div className="actions"><button className="btn" onClick={onDone}>Done</button></div>
-      </section>
+      ) : (
+        <section>
+          <div className="strings" aria-hidden>
+            {GUITAR_STRINGS.map((s, i) => <span key={i} className={reading?.index === i ? (inTune ? 'on ok' : 'on') : ''}>{s.name}</span>)}
+          </div>
+          <div className={`tuner-note${inTune ? ' ok' : ''}`}>{reading ? GUITAR_STRINGS[reading.index].name : ''}</div>
+          <p className="dim">{reading ? GUITAR_STRINGS[reading.index].label : 'Standard tuning: E A D G B E'}</p>
+          <div className="tuner-scale" role="meter" aria-valuemin={-50} aria-valuemax={50} aria-valuenow={Math.round(cents)} aria-label="Cents away from in tune">
+            <span className="tuner-zone" />
+            {reading && <span className={`tuner-needle${inTune ? ' ok' : ''}`} style={{ left: `${50 + cents}%` }} />}
+          </div>
+          <p className="advice" aria-live="polite">{advice}</p>
+        </section>
+      )}
     </div>
   );
 }
