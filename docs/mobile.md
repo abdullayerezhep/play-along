@@ -80,14 +80,92 @@ npx @capacitor/assets generate --iconBackgroundColor '#1a110d' --splashBackgroun
 That tool also writes an `icons/` folder and `public/manifest.webmanifest` for
 web apps. Delete both: the manifest here comes from `vite.config.ts`.
 
+## Try it on your own iPhone (free)
+
+No paid Apple account is needed for this. You need a Mac with Xcode 26 or
+newer, a cable, and your ordinary Apple ID.
+
+1. Install Xcode from the Mac App Store and open it once so it finishes setting up.
+2. In the project folder: `npm install`, then `npm run mobile:ios`. Xcode opens.
+3. Xcode → Settings → Accounts → **+** → sign in with your Apple ID. This
+   creates a free "Personal Team".
+4. Click **App** at the top of the left sidebar → the **App** target →
+   **Signing & Capabilities**. Tick "Automatically manage signing" and choose
+   your Personal Team. If Xcode says the bundle identifier is taken, change it
+   to something of your own.
+5. Plug in the iPhone and unlock it. Tap "Trust" when it asks about the computer.
+6. On the iPhone: Settings → Privacy & Security → **Developer Mode** → on. The
+   phone restarts.
+7. In Xcode, pick your iPhone in the device menu at the top and press **Run** (▶).
+8. The first launch is blocked as "Untrusted Developer". On the iPhone:
+   Settings → General → VPN & Device Management → your Apple ID → **Trust**.
+   Open the app again.
+
+With a free account the app stops opening after 7 days. Plug in and press Run
+again to renew it.
+
+### What to check, in this order
+
+1. **Settings → Turn on microphone.** iOS should ask for permission. Then strum
+   or clap: the level bar must move and the light must blink. If the bar stays
+   flat while permission is granted, that is the known web-view problem
+   described under "What is not proven yet". Stop there and report it.
+2. **Tuner.** Play one open string. It should name the string.
+3. **A warm-up song in Learn mode,** with the phone about half a metre away.
+   Does each strum register once? Are chords recognised?
+4. **Play mode,** including the delay measurement.
+5. Sound: is the click audible while the microphone is on? iPhones sometimes
+   switch to the quiet earpiece speaker when recording starts.
+6. Layout: the notch, the home bar, rotating the phone.
+
+To read the app's console while it runs on the phone: on the Mac open Safari →
+Develop → your iPhone → the app. (Enable the Develop menu in Safari's settings,
+and Web Inspector on the iPhone under Settings → Apps → Safari → Advanced.)
+
+## The purchase
+
+One non-consumable product opens the Medium and Hard songs. Warm-ups, Easy
+songs and songs the player types in are free.
+
+- Product id: **`all_songs`** (`PRODUCT_ID` in `src/game/access.ts`). Create a
+  product with exactly this id in both stores:
+  - App Store Connect → your app → In-App Purchases → **Non-Consumable**.
+  - Play Console → your app → Monetise → Products → In-app products.
+- The price is set in the stores, per country, not in the code. The app shows
+  whatever the store returns.
+- Which songs are paid: `PAID_LEVELS` in `src/game/access.ts`.
+- The store code is `src/store.ts`, using `@capgo/native-purchases` (StoreKit 2
+  on iOS, Play Billing on Android). No server and no third-party account.
+- The buy screen has "I already bought this", which restores the purchase.
+  Apple requires that for one-time purchases.
+- The website sells nothing and has no locks.
+
+To see the locks and the buy screen in a browser while developing:
+`npm run dev`, then open `http://localhost:5173/?paywall`. That uses a pretend
+store: no money, no network.
+
+To try a real purchase on the iPhone without App Store Connect, Xcode can play
+the store: File → New → File → **StoreKit Configuration File**, add a
+non-consumable with the id `all_songs` and a price, then Product → Scheme →
+Edit Scheme → Run → Options → choose that file under "StoreKit Configuration".
+Purchases made this way are free. Whether Xcode allows this with a free
+Personal Team has not been checked here.
+
+**The purchase code has never talked to a real store.** It is written against
+the plugin's documented interface and tested only with the pretend store. Test
+buying, cancelling, restoring and a refund in the stores' sandboxes before
+release.
+
 ## Before the first store release
+
 
 - **App id.** `com.abdullayerezhep.playalong` is a placeholder. It can never be
   changed after the first upload, so settle it first. It appears in
   `capacitor.config.ts`, `android/app/build.gradle` and the Xcode project.
 - **Song library.** The hits are chord charts for private practice. A public
   store listing that names commercial songs is a different matter from using the
-  app yourself. Decide what ships before publishing.
+  app yourself, and half of what the purchase opens (21 of 42 songs) is hits.
+  Decide what ships before publishing.
 - **Signing.** A Play upload key and an Apple developer account.
 
 ## What is not proven yet

@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import type { Best } from '../best';
+import { isLocked, type Access } from '../game/access';
 import { CUSTOM_ID, MINE, getProgression, suggestedBars } from '../game/chart';
 import { DEFAULT_SONG, LEVELS, SONGS, type Group, type Level, type Song } from '../game/songs';
 import type { AppSettings } from '../settings';
-import { PlusIcon, SearchIcon } from './Icons';
+import { LockIcon, PlusIcon, SearchIcon } from './Icons';
 import { Stars } from './Stars';
 
 type Filter = Level | 'mine';
@@ -11,6 +12,7 @@ type Filter = Level | 'mine';
 type Props = {
   settings: AppSettings;
   best: Best;
+  access: Access;
   onChange: (s: AppSettings) => void;
   /** Called after a song is chosen, so a phone can open its page. */
   onOpen: () => void;
@@ -23,7 +25,7 @@ const chordCount = (s: Song) => {
 };
 
 /** The song list: search, a level filter, and one plain row per song. */
-export function SongsScreen({ settings, best, onChange, onOpen, onGuide }: Props) {
+export function SongsScreen({ settings, best, access, onChange, onOpen, onGuide }: Props) {
   const selected = settings.progressionId;
   const current = SONGS.find((s) => s.id === selected);
   const mine = selected === CUSTOM_ID || selected.startsWith(MINE);
@@ -57,7 +59,9 @@ export function SongsScreen({ settings, best, onChange, onOpen, onGuide }: Props
       </button>
       <span className="song-meta">
         {best[s.id] && <Stars grade={best[s.id].grade} />}
-        <span>{chordCount(s)}</span>
+        {isLocked(s, access)
+          ? <span className="locked"><LockIcon /><span className="sr">Locked. </span>{chordCount(s)}</span>
+          : <span>{chordCount(s)}</span>}
       </span>
       {extra}
     </li>
@@ -103,7 +107,12 @@ export function SongsScreen({ settings, best, onChange, onOpen, onGuide }: Props
       )}
 
       {found && <p className="list-note">{found.length ? `${found.length} song${found.length === 1 ? '' : 's'} found` : `Nothing matches "${query.trim()}". You can add any song yourself under My songs.`}</p>}
-      {!found && level && <p className="list-note">{level.about}</p>}
+      {!found && level && (
+        <p className="list-note">
+          {level.about}
+          {isLocked({ level: level.id }, access) && ' These open with a one-time purchase. Tap any song to look inside first.'}
+        </p>
+      )}
 
       {filter === 'mine' && !found ? (
         <>

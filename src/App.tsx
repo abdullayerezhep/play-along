@@ -11,11 +11,14 @@ import { Shell } from './components/Shell';
 import { SongDetail } from './components/SongDetail';
 import { SongsScreen } from './components/SongsScreen';
 import { Tuner } from './components/Tuner';
+import { Unlock } from './components/Unlock';
 import { loadBest, recordBest, type Best } from './best';
-import { CUSTOM_ID } from './game/chart';
+import { isLocked } from './game/access';
+import { CUSTOM_ID, getProgression } from './game/chart';
 import { accuracy, grade, type Stats } from './game/judge';
 import { useScreens, type Tab } from './nav';
 import { isCalibrated, loadSettings, saveSettings, type AppSettings } from './settings';
+import { useStore } from './useStore';
 
 /** On a narrow screen the song list and the song's page are two separate pages. */
 const onPhone = () => window.matchMedia('(max-width: 899px)').matches;
@@ -32,6 +35,10 @@ export default function App() {
   /** The chord being explained in the "how to play it" card, if any. */
   const [help, setHelp] = useState<{ chord: string; onClose?: () => void } | null>(null);
   const showHelp = useCallback<ShowChordHelp>((chord, onClose) => setHelp({ chord, onClose }), []);
+  const shop = useStore();
+  /** The purchase screen is open. */
+  const [unlocking, setUnlocking] = useState(false);
+  const locked = isLocked(getProgression(settings), shop);
   const closeHelp = () => { help?.onClose?.(); setHelp(null); };
 
   useEffect(() => saveSettings(settings), [settings]);
@@ -73,6 +80,7 @@ export default function App() {
 
   /** The first Play-mode song with a mic goes through the delay measurement once. */
   const start = async (withMic: boolean) => {
+    if (locked) { setUnlocking(true); return; }
     if (withMic && !(await enableMic())) return;
     // timing is only judged in play mode, so only that needs the delay measured
     if (settings.mode === 'play' && engine.micReady && !isCalibrated(settings) && !skippedCalibration) go({ name: 'calibrate', then: 'play' });
@@ -108,10 +116,11 @@ export default function App() {
         <Shell tab={screen.tab} onTab={tab} micOn={micOn} onMic={micButton} deep={!!screen.detail}>
           {screen.tab === 'songs' && (
             <div className={`split${screen.detail ? ' detail' : ''}`}>
-              <SongsScreen settings={settings} best={best} onChange={change}
+              <SongsScreen settings={settings} best={best} access={shop} onChange={change}
                 onOpen={() => { if (onPhone() && !screen.detail) go({ name: 'home', tab: 'songs', detail: true }); }}
                 onGuide={() => tab('guide')} />
               <SongDetail key={settings.progressionId} settings={settings} best={best} micOn={micOn} micError={micError}
+                locked={locked} price={shop.price} onUnlock={() => setUnlocking(true)}
                 onChange={change} onStart={start} onBack={back} />
             </div>
           )}
@@ -119,7 +128,8 @@ export default function App() {
           {screen.tab === 'tuner' && <Tuner engine={engine} micOn={micOn} micError={micError} onMic={enableMic} />}
           {screen.tab === 'settings' && (
             <SettingsScreen engine={engine} settings={settings} micOn={micOn} micError={micError} onMic={enableMic}
-              onChange={change} onCalibrate={() => go({ name: 'calibrate', then: 'back' })} />
+              onChange={change} onCalibrate={() => go({ name: 'calibrate', then: 'back' })}
+              shop={shop} onUnlock={() => setUnlocking(true)} />
           )}
         </Shell>
       )}
@@ -137,6 +147,7 @@ export default function App() {
           onRetry={() => void play(true)} onMenu={back}
           onPlayMode={() => { setSettings((s) => ({ ...s, mode: 'play' })); back(); }} />
       )}
+      {unlocking && <Unlock shop={shop} onClose={() => setUnlocking(false)} />}
       {help && <ChordCard key={help.chord} chord={help.chord} engine={engine} onClose={closeHelp} />}
     </main>
     </ChordHelpContext.Provider>

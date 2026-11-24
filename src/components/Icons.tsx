@@ -13,4 +13,5 @@ export const SettingsIcon = () => <Icon><path d="M4 7h10M18 7h2M4 17h2M10 17h10"
 export const MicIcon = () => <Icon><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" /></Icon>;
 export const BackIcon = () => <Icon><path d="M15 5l-7 7 7 7" /></Icon>;
 export const SearchIcon = () => <Icon><circle cx="11" cy="11" r="6.5" /><path d="M16 16l4.5 4.5" /></Icon>;
+export const LockIcon = () => <Icon><rect x="5.5" y="11" width="13" height="9" rx="2" /><path d="M8.5 11V8a3.5 3.5 0 0 1 7 0v3" /></Icon>;
 export const PlusIcon = () => <Icon><path d="M12 5v14M5 12h14" /></Icon>;

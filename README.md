@@ -20,7 +20,9 @@ From there the phone's browser can add it to the home screen, where it opens ful
 screen and works offline.
 
 Android and iOS apps are prepared with Capacitor but not yet tried on a device:
-see [docs/mobile.md](docs/mobile.md).
+see [docs/mobile.md](docs/mobile.md). It also explains how to put the app on your own
+iPhone for free. In the apps, the Medium and Hard songs open with a one-time purchase;
+on the website everything is open.
 
 ## Finding your way around
 
@@ -133,7 +135,7 @@ To add a song to the built-in library, add one line to `src/game/songs.ts`.
 ## Tests
 
 ```bash
-npm test          # 59 tests, about 30 seconds
+npm test          # 64 tests, about 30 seconds
 npm run lint
 npm run typecheck
 ```

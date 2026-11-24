@@ -193,6 +193,23 @@ input[type='range'], input[type='checkbox'], input[type='radio'] { accent-color:
 .ask-mic { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px 16px; border-radius: 12px; background: var(--wood-2); max-width: 640px; }
 .ask-mic p { flex: 1; min-width: 14em; }
 
+/* ---------- the purchase ---------- */
+.locked { display: inline-flex; align-items: center; gap: 5px; }
+.locked svg, .tag svg { width: 13px; height: 13px; }
+.tag { display: inline-flex; align-items: center; gap: 5px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.unlock {
+  width: min(440px, 100%); padding: 28px 26px 18px; border-radius: 18px; background: var(--wood-1);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6), inset 0 0 0 1px var(--line); display: grid; gap: 12px;
+}
+.unlock h2 { font: 800 40px/0.95 var(--display); margin: 0; }
+.unlock .dim { color: var(--bone-dim); font-size: 14px; }
+.unlock .go { width: 100%; margin-top: 8px; }
+.unlock-note { min-height: 1.5em; font-size: 14px; color: var(--amber); }
+.unlock .actions { justify-content: space-between; margin: 0; }
+.link:disabled { opacity: 0.5; cursor: default; }
+p.mode { display: block; }
+
 /* ---------- settings ---------- */
 .settings, .library, .tuner { padding: 30px 36px 40px; }
 .settings { max-width: 680px; display: flex; flex-direction: column; }
