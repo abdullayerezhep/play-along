@@ -1,5 +1,6 @@
 import type { AudioEngine } from '../audio/engine';
 import { isCalibrated, type AppSettings } from '../settings';
+import type { Shop } from '../useStore';
 import { LevelMeter } from './LevelMeter';
 
 type Props = {
@@ -10,10 +11,12 @@ type Props = {
   onMic: () => void;
   onChange: (s: AppSettings) => void;
   onCalibrate: () => void;
+  shop: Shop;
+  onUnlock: () => void;
 };
 
 /** Things you set once: the microphone, where the sound comes from, and the rules. */
-export function SettingsScreen({ engine, settings, micOn, micError, onMic, onChange, onCalibrate }: Props) {
+export function SettingsScreen({ engine, settings, micOn, micError, onMic, onChange, onCalibrate, shop, onUnlock }: Props) {
   const set = <K extends keyof AppSettings>(k: K, v: AppSettings[K]) => onChange({ ...settings, [k]: v });
   const speakers = settings.output === 'speakers';
 
@@ -74,6 +77,20 @@ export function SettingsScreen({ engine, settings, micOn, micError, onMic, onCha
         <p className="hint">Turn this off to practise only the rhythm.</p>
         <label className="check"><input type="checkbox" checked={settings.ringOut} onChange={(e) => set('ringOut', e.target.checked)} /> End every song on one long chord</label>
       </section>
+
+      {shop.paywall && (
+        <section>
+          <h2>Songs</h2>
+          {shop.owned ? (
+            <p className="hint">All songs are open on this account. Thank you for buying.</p>
+          ) : (
+            <>
+              <p className="hint">Warm-ups and Easy songs are free. Medium and Hard songs open with a one-time purchase. Bought it on another phone? Restore it from the same screen.</p>
+              <button className="btn quiet" onClick={onUnlock}>{shop.price ? `Unlock all songs for ${shop.price}` : 'Unlock all songs'}</button>
+            </>
+          )}
+        </section>
+      )}
     </div>
   );
 }

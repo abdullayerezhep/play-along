@@ -6,7 +6,7 @@ import { slotsFromHits } from '../game/slots';
 import type { AppSettings } from '../settings';
 import { ChordDiagram } from './ChordDiagram';
 import { useChordHelp } from './chordHelp';
-import { BackIcon } from './Icons';
+import { BackIcon, LockIcon } from './Icons';
 import { Stars } from './Stars';
 import { StrumStrip } from './StrumStrip';
 
@@ -15,6 +15,11 @@ type Props = {
   best: Best;
   micOn: boolean;
   micError: string;
+  /** The song is part of the paid set and not bought yet. */
+  locked: boolean;
+  /** The store's price, once known. */
+  price: string | null;
+  onUnlock: () => void;
   onChange: (s: AppSettings) => void;
   /** Start the song. `withMic` asks for the microphone first. */
   onStart: (withMic: boolean) => void;
@@ -25,7 +30,7 @@ type Props = {
  * Everything about one song, in the order a beginner needs it: the chords to
  * learn, how to strum, how fast, and then the start button.
  */
-export function SongDetail({ settings, best, micOn, micError, onChange, onStart, onBack }: Props) {
+export function SongDetail({ settings, best, micOn, micError, locked, price, onUnlock, onChange, onStart, onBack }: Props) {
   const showHelp = useChordHelp();
   const [choosingStrum, setChoosingStrum] = useState(false);
   const [askMic, setAskMic] = useState(false);
@@ -59,6 +64,7 @@ export function SongDetail({ settings, best, micOn, micError, onChange, onStart,
 
   const start = () => {
     if (songError) return;
+    if (locked) { onUnlock(); return; }
     if (!micOn) { setAskMic(true); return; }
     onStart(false);
   };
@@ -71,7 +77,7 @@ export function SongDetail({ settings, best, micOn, micError, onChange, onStart,
           <h1>{typing ? 'Your own song' : song.name}</h1>
           <p className="song-about">
             {typing ? 'Type the chords, then play it or save it.' : library?.about ?? 'Your song'}
-            {level && <span className="tag">{level.name}</span>}
+            {level && <span className="tag">{locked && <LockIcon />}{level.name}</span>}
             {best[id] && <Stars grade={best[id].grade} />}
           </p>
         </div>
@@ -154,13 +160,19 @@ export function SongDetail({ settings, best, micOn, micError, onChange, onStart,
       </section>
 
       <footer className="song-start">
-        {askMic && !micOn && (
+        {askMic && !micOn && !locked && (
           <div className="ask-mic" role="alert">
             <p>{micError || "The microphone is off, so the game can't hear your guitar."}</p>
             <button className="btn" onClick={() => onStart(true)}>Turn it on and start</button>
             <button className="btn quiet" onClick={() => onStart(false)}>{touch ? 'Play by tapping the screen' : 'Play with the Space bar'}</button>
           </div>
         )}
+        {locked ? (
+          <div className="start-row">
+            <p className="mode">This song opens together with every Medium and Hard song. One payment, no subscription.</p>
+            <button className="btn go" onClick={onUnlock}>{price ? `Unlock all songs for ${price}` : 'Unlock all songs'}</button>
+          </div>
+        ) : (
         <div className="start-row">
           <div className="mode">
             <div className="seg" role="radiogroup" aria-label="How to play">
@@ -171,6 +183,7 @@ export function SongDetail({ settings, best, micOn, micError, onChange, onStart,
           </div>
           <button className="btn go" onClick={start} disabled={!!songError}>{learn ? 'Start learning' : 'Start playing'}</button>
         </div>
+        )}
       </footer>
     </article>
   );
